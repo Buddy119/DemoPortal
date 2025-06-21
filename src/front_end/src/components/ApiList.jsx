@@ -1,4 +1,3 @@
-import React from 'react';
 import { apiData } from '../data/apis';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 

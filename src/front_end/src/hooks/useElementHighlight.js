@@ -1,5 +1,5 @@
 import { animate } from 'framer-motion';
-import { useCallback, useEffect, useRef } from 'react';
+const { useCallback, useEffect, useRef } = React;
 
 export function useElementHighlight(duration = 3000) {
   const timerRef = useRef(null);

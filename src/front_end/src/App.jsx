@@ -1,4 +1,3 @@
-import React from 'react';
 import ApiList from './components/ApiList';
 import ChatWindow from './components/ChatWindow';
 

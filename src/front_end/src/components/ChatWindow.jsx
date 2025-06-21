@@ -1,4 +1,3 @@
-import React from 'react';
 import { MessageCircle, Minus } from 'lucide-react';
 import { useSocket } from '../SocketProvider.jsx';
 import { useElementHighlight } from '../hooks/useElementHighlight.js';

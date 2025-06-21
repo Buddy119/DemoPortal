@@ -1,9 +1,14 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname } from 'node:path';
+import { extname, join } from 'node:path';
 
 const server = createServer(async (req, res) => {
-  let filePath = 'public' + (req.url === '/' ? '/index.html' : req.url);
+  let filePath;
+  if (req.url.startsWith('/src/')) {
+    filePath = join('src', req.url.slice('/src/'.length));
+  } else {
+    filePath = join('public', req.url === '/' ? 'index.html' : req.url);
+  }
   try {
     const data = await readFile(filePath);
     const ext = extname(filePath);
@@ -11,6 +16,7 @@ const server = createServer(async (req, res) => {
       '.html': 'text/html',
       '.js': 'text/javascript',
       '.css': 'text/css',
+      '.jsx': 'text/jsx',
     };
     res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
     res.end(data);

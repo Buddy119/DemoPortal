@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
+import { transformAsync } from '@babel/core';
 
 const server = createServer(async (req, res) => {
   let filePath;
@@ -10,13 +11,19 @@ const server = createServer(async (req, res) => {
     filePath = join('public', req.url === '/' ? 'index.html' : req.url);
   }
   try {
-    const data = await readFile(filePath);
     const ext = extname(filePath);
+    let data = await readFile(filePath, 'utf8');
+    if (ext === '.jsx') {
+      const result = await transformAsync(data, {
+        presets: ['@babel/preset-react'],
+        filename: filePath,
+      });
+      data = result.code;
+    }
     const types = {
       '.html': 'text/html',
       '.js': 'text/javascript',
       '.css': 'text/css',
-      // Serve JSX with a JavaScript MIME type so module scripts load correctly
       '.jsx': 'text/javascript',
     };
     res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });

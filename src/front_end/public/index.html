@@ -3,18 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Allow inline Babel compilation -->
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://unpkg.com">
   <title>DemoPortal</title>
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- bundled socket.io client served locally -->
   <script src="./socket.io.min.js"></script>
   <link href="./tailwind.min.css" rel="stylesheet" />
 </head>
 <body class="bg-gray-50">
   <div id="root"></div>
-  <script type="text/babel" data-type="module" src="../src/index.jsx"></script>
+  <script type="module" src="../src/index.jsx"></script>
 </body>
 </html>

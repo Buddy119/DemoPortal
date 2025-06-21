@@ -11,6 +11,8 @@ import uvicorn
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from main import app
+from services import gpt_service
+from sockets import websocket
 
 
 @pytest.fixture(scope="module")
@@ -37,9 +39,15 @@ async def test_websocket_connection(start_server):
 
 
 @pytest.mark.asyncio
-async def test_websocket_user_message(start_server):
+async def test_websocket_user_message(start_server, monkeypatch):
     sio = socketio.AsyncClient()
     received = []
+
+    async def fake_generate_curl_example(context, user_query):
+        return "curl -X POST https://example.com/api/v1/auth -d '{\"user\":\"test\"}'"
+
+    monkeypatch.setattr(gpt_service, "generate_curl_example", fake_generate_curl_example)
+    monkeypatch.setattr(websocket, "generate_curl_example", fake_generate_curl_example)
 
     @sio.event
     async def bot_response(data):

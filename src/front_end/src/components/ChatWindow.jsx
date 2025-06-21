@@ -1,6 +1,6 @@
 import { MessageCircle, Minus } from 'lucide-react';
-import { useSocket } from '../SocketProvider.jsx';
-import { useElementHighlight } from '../hooks/useElementHighlight.js';
+import { useSocket } from '/src/SocketProvider.jsx';
+import { useElementHighlight } from '/src/hooks/useElementHighlight.js';
 
 export default function ChatWindow() {
   const [open, setOpen] = React.useState(true);

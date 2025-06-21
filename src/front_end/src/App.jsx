@@ -1,5 +1,5 @@
-import ApiList from './components/ApiList';
-import ChatWindow from './components/ChatWindow';
+import ApiList from '/src/components/ApiList.jsx';
+import ChatWindow from '/src/components/ChatWindow.jsx';
 
 export default function App() {
   return (

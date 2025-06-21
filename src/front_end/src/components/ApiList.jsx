@@ -1,5 +1,5 @@
-import { apiData } from '../data/apis';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { apiData } from '/src/data/apis.js';
+import { Card, CardHeader, CardTitle, CardContent } from '/src/components/ui/card.jsx';
 
 export default function ApiList() {
   return (

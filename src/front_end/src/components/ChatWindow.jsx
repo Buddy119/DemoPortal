@@ -35,20 +35,21 @@ function MinusIcon(props) {
     </svg>
   );
 }
-import { useSocket } from '/src/SocketProvider.jsx';
-import { useElementHighlight } from '/src/hooks/useElementHighlight.js';
+import React, { useEffect, useRef, useState } from 'react';
+import { useSocket } from '../SocketProvider.jsx';
+import { useElementHighlight } from '../hooks/useElementHighlight.js';
 
 export default function ChatWindow() {
-  const [open, setOpen] = React.useState(true);
-  const [messages, setMessages] = React.useState([
+  const [open, setOpen] = useState(true);
+  const [messages, setMessages] = useState([
     { sender: 'bot', text: 'Hello! How can we assist you?' },
   ]);
-  const [input, setInput] = React.useState('');
+  const [input, setInput] = useState('');
   const { sendMessage, subscribeToResponses } = useSocket();
   const { highlight } = useElementHighlight();
-  const messagesRef = React.useRef(null);
+  const messagesRef = useRef(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const unsubscribe = subscribeToResponses((data) => {
       setMessages((msgs) => [...msgs, { sender: 'bot', text: data.responseText }]);
       if (data.highlightSelector) {
@@ -58,7 +59,7 @@ export default function ChatWindow() {
     return unsubscribe;
   }, [subscribeToResponses, highlight]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }

@@ -1,8 +1,50 @@
 import React from 'react';
 import { MessageCircle, Minus } from 'lucide-react';
+import { useSocket } from '../SocketProvider.jsx';
 
 export default function ChatWindow() {
   const [open, setOpen] = React.useState(true);
+  const [messages, setMessages] = React.useState([
+    { sender: 'bot', text: 'Hello! How can we assist you?' },
+  ]);
+  const [input, setInput] = React.useState('');
+  const { sendMessage, subscribeToResponses } = useSocket();
+  const messagesRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeToResponses((data) => {
+      setMessages((msgs) => [...msgs, { sender: 'bot', text: data.responseText }]);
+      if (data.highlightSelector) {
+        const el = document.querySelector(data.highlightSelector);
+        if (el) {
+          el.classList.add('ring', 'ring-yellow-300');
+          setTimeout(() => el.classList.remove('ring', 'ring-yellow-300'), 2000);
+        }
+      }
+    });
+    return unsubscribe;
+  }, [subscribeToResponses]);
+
+  React.useEffect(() => {
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }
+  }, [messages, open]);
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+    const payload = {
+      context: {
+        currentPage: 'User Authentication API',
+        selectedLanguage: 'curl',
+        previousQueries: [],
+      },
+      userQuery: input,
+    };
+    sendMessage(payload);
+    setMessages((msgs) => [...msgs, { sender: 'user', text: input }]);
+    setInput('');
+  };
 
   return (
     <>
@@ -18,11 +60,30 @@ export default function ChatWindow() {
             <Minus size={16} />
           </button>
         </div>
-        <div className="p-2 overflow-y-auto space-y-2" style={{ maxHeight: '300px' }}>
-          <div className="text-sm bg-gray-100 rounded p-2 w-fit">Hello! How can we assist you?</div>
-          <div className="text-sm bg-blue-100 rounded p-2 w-fit self-end">This is a placeholder message.</div>
-          <div className="text-sm bg-gray-100 rounded p-2 w-fit">Feel free to ask us anything.</div>
-          <div className="text-sm bg-blue-100 rounded p-2 w-fit self-end">More features coming soon!</div>
+        <div ref={messagesRef} className="p-2 overflow-y-auto space-y-2 flex-1" style={{ maxHeight: '300px' }}>
+          {messages.map((m, idx) => (
+            <div
+              key={idx}
+              className={`text-sm rounded p-2 w-fit ${m.sender === 'bot' ? 'bg-gray-100' : 'bg-blue-100 self-end'}`}
+            >
+              {m.text}
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center border-t p-2">
+          <input
+            className="flex-1 border rounded p-1 text-sm"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Type a message..."
+          />
+          <button
+            className="ml-2 text-blue-600 hover:text-blue-800 text-sm"
+            onClick={handleSend}
+          >
+            Send
+          </button>
         </div>
       </div>
       {!open && (

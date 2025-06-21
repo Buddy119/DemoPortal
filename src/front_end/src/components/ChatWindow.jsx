@@ -1,4 +1,40 @@
-import { MessageCircle, Minus } from 'lucide-react';
+function MessageCircleIcon(props) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-message-circle"
+    >
+      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+    </svg>
+  );
+}
+
+function MinusIcon(props) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-minus"
+    >
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
 import { useSocket } from '/src/SocketProvider.jsx';
 import { useElementHighlight } from '/src/hooks/useElementHighlight.js';
 
@@ -54,7 +90,7 @@ export default function ChatWindow() {
             className="text-gray-400 hover:text-gray-600"
             onClick={() => setOpen(false)}
           >
-            <Minus size={16} />
+            <MinusIcon width={16} height={16} />
           </button>
         </div>
         <div ref={messagesRef} className="p-2 overflow-y-auto space-y-2 flex-1" style={{ maxHeight: '300px' }}>
@@ -88,7 +124,7 @@ export default function ChatWindow() {
           className="fixed bottom-4 right-4 p-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition"
           onClick={() => setOpen(true)}
         >
-          <MessageCircle size={20} />
+          <MessageCircleIcon width={20} height={20} />
         </button>
       )}
     </>

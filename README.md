@@ -1,6 +1,6 @@
 # DemoPortal
 
-This demo project provides a basic React page built with Tailwind CSS and shadcn/ui-style components. It lists API documentation items and shows a floating chat window placeholder.
+This demo project provides a basic React page built with Tailwind CSS and shadcn/ui-style components. It lists API documentation items and includes an interactive floating chat window.
 
 ## Getting Started
 

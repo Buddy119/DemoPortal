@@ -32,3 +32,11 @@ The backend uses FastAPI. To run it locally:
 cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+### Running Tests
+
+Execute the WebSocket unit tests with:
+
+```bash
+pytest tests/test_websocket.py
+```

@@ -16,7 +16,8 @@ const server = createServer(async (req, res) => {
       '.html': 'text/html',
       '.js': 'text/javascript',
       '.css': 'text/css',
-      '.jsx': 'text/jsx',
+      // Serve JSX with a JavaScript MIME type so module scripts load correctly
+      '.jsx': 'text/javascript',
     };
     res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
     res.end(data);

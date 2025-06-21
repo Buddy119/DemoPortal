@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageCircle, Minus } from 'lucide-react';
 import { useSocket } from '../SocketProvider.jsx';
+import { useElementHighlight } from '../hooks/useElementHighlight.js';
 
 export default function ChatWindow() {
   const [open, setOpen] = React.useState(true);
@@ -9,21 +10,18 @@ export default function ChatWindow() {
   ]);
   const [input, setInput] = React.useState('');
   const { sendMessage, subscribeToResponses } = useSocket();
+  const { highlight } = useElementHighlight();
   const messagesRef = React.useRef(null);
 
   React.useEffect(() => {
     const unsubscribe = subscribeToResponses((data) => {
       setMessages((msgs) => [...msgs, { sender: 'bot', text: data.responseText }]);
       if (data.highlightSelector) {
-        const el = document.querySelector(data.highlightSelector);
-        if (el) {
-          el.classList.add('ring', 'ring-yellow-300');
-          setTimeout(() => el.classList.remove('ring', 'ring-yellow-300'), 2000);
-        }
+        highlight(data.highlightSelector);
       }
     });
     return unsubscribe;
-  }, [subscribeToResponses]);
+  }, [subscribeToResponses, highlight]);
 
   React.useEffect(() => {
     if (messagesRef.current) {

@@ -23,3 +23,12 @@ npm start
 ```
 
 Then open `http://localhost:3000` in your browser.
+
+## Backend Server
+
+The backend uses FastAPI. To run it locally:
+
+```bash
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```

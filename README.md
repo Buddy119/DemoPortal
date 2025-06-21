@@ -23,9 +23,8 @@ npm install
 Start the development server from the same directory:
 
 ```bash
-npm start
+npm run dev
 ```
-
 Then open `http://localhost:3000` in your browser.
 
 ## Backend Server

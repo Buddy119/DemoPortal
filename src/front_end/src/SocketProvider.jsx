@@ -1,6 +1,6 @@
-const { createContext, useContext, useEffect, useRef, useState } = React;
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 
-// the global `io` is loaded from socket.io.min.js
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {

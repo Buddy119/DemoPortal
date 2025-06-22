@@ -36,6 +36,8 @@ function MinusIcon(props) {
   );
 }
 import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import { useSocket } from '../SocketProvider.jsx';
 import { useElementHighlight } from '../hooks/useElementHighlight.js';
 
@@ -94,26 +96,45 @@ export default function ChatWindow() {
             <MinusIcon width={16} height={16} />
           </button>
         </div>
-        <div ref={messagesRef} className="p-2 overflow-y-auto space-y-2 flex-1" style={{ maxHeight: '300px' }}>
-          {messages.map((m, idx) => (
-            <div
-              key={idx}
-              className={`text-sm rounded p-2 w-fit ${m.sender === 'bot' ? 'bg-gray-100' : 'bg-blue-100 self-end'}`}
-            >
-              {m.text}
-            </div>
-          ))}
+        <div
+          ref={messagesRef}
+          className="p-2 overflow-y-auto space-y-2 flex-1 h-96 scrollbar-hide"
+        >
+          <AnimatePresence initial={false}>
+            {messages.map((m, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className={`max-w-xs text-sm rounded-lg p-2 break-words ${
+                  m.sender === 'bot'
+                    ? 'bg-gray-100 text-gray-800 self-start'
+                    : 'bg-blue-100 self-end'
+                }`}
+              >
+                {m.sender === 'bot' ? (
+                  <ReactMarkdown className="prose prose-sm">
+                    {m.text}
+                  </ReactMarkdown>
+                ) : (
+                  m.text
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
-        <div className="flex items-center border-t p-2">
+        <div className="flex items-center gap-2 border-t p-2">
           <input
-            className="flex-1 border rounded p-1 text-sm"
+            className="flex-1 border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Type a message..."
           />
           <button
-            className="ml-2 text-blue-600 hover:text-blue-800 text-sm"
+            className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
             onClick={handleSend}
           >
             Send

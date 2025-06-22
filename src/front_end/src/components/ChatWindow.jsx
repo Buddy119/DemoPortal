@@ -38,8 +38,18 @@ function MinusIcon(props) {
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useSocket } from '../SocketProvider.jsx';
 import { useElementHighlight } from '../hooks/useElementHighlight.js';
+
+function autoExpand(el, maxRows = 6) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const lineHeight = parseInt(getComputedStyle(el).lineHeight, 10);
+  const maxHeight = lineHeight * maxRows;
+  el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
+}
 
 export default function ChatWindow() {
   const [open, setOpen] = useState(true);
@@ -63,7 +73,11 @@ export default function ChatWindow() {
 
   useEffect(() => {
     if (messagesRef.current) {
-      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+      const el = messagesRef.current;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+      if (atBottom) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [messages, open]);
 
@@ -85,7 +99,7 @@ export default function ChatWindow() {
   return (
     <>
       <div
-        className={`fixed bottom-4 right-4 w-72 bg-white border rounded shadow-lg flex flex-col transition-all duration-300 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+        className={`fixed bottom-4 right-4 w-full md:max-w-2xl bg-white border rounded shadow-lg flex flex-col transition-all duration-300 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
       >
         <div className="flex justify-between items-center border-b p-2">
           <span className="font-semibold">Chat</span>
@@ -98,58 +112,47 @@ export default function ChatWindow() {
         </div>
         <div
           ref={messagesRef}
-          className="p-2 overflow-y-auto space-y-2 flex-1 h-96 scrollbar-hide"
+          className="flex flex-col h-[70vh] overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent px-4 space-y-3"
         >
           <AnimatePresence initial={false}>
             {messages.map((m, idx) => (
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                transition={{ duration: 0.2 }}
-                className={`max-w-xs text-sm rounded-lg p-2 break-words ${
+                transition={{ duration: 0.15 }}
+                className={`rounded-lg p-3 max-w-[90%] ${
                   m.sender === 'bot'
-                    ? 'bg-gray-100 text-gray-800 self-start'
-                    : 'bg-blue-100 self-end'
+                    ? 'self-start bg-gray-100 text-gray-900 prose prose-sm'
+                    : 'self-end bg-blue-100 text-blue-900'
                 }`}
               >
                 {m.sender === 'bot' ? (
-                  <div className="prose prose-sm">
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }) => (
-                          <p className="mb-2 text-sm">{children}</p>
-                        ),
-                        code: ({ children }) => (
-                          <code className="bg-gray-100 px-1 rounded text-sm font-mono">
-                            {children}
-                          </code>
-                        ),
-                        pre: ({ children }) => (
-                          <pre className="bg-gray-800 text-white p-2 rounded overflow-x-auto text-sm">
-                            {children}
-                          </pre>
-                        ),
-                        a: ({ href, children }) => (
-                          <a
-                            href={href}
-                            className="text-blue-600 underline hover:text-blue-800"
-                          >
-                            {children}
-                          </a>
-                        ),
-                        ul: ({ children }) => (
-                          <ul className="list-disc pl-5">{children}</ul>
-                        ),
-                        ol: ({ children }) => (
-                          <ol className="list-decimal pl-5">{children}</ol>
-                        ),
-                      }}
-                    >
-                      {m.text}
-                    </ReactMarkdown>
-                  </div>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ inline, className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline ? (
+                          <div className="relative">
+                            <button
+                              onClick={() => navigator.clipboard.writeText(String(children))}
+                              className="absolute top-2 right-2 text-xs text-gray-600 hover:text-gray-800"
+                            >
+                              Copy
+                            </button>
+                            <SyntaxHighlighter language={match ? match[1] : ''} PreTag="div" {...props}>
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          </div>
+                        ) : (
+                          <code className="bg-gray-200 px-1 rounded">{children}</code>
+                        );
+                      },
+                    }}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
                 ) : (
                   m.text
                 )}
@@ -157,17 +160,25 @@ export default function ChatWindow() {
             ))}
           </AnimatePresence>
         </div>
-        <div className="flex items-center gap-2 border-t p-2">
-          <input
-            className="flex-1 border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <div className="flex flex-col items-stretch gap-2 border-t p-2 md:flex-row md:items-end">
+          <textarea
+            rows={1}
+            className="flex-1 resize-none rounded border px-3 py-2 focus:outline-none focus:ring"
+            placeholder="Type a message…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
+            onInput={(e) => autoExpand(e.target, 6)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
           />
           <button
-            className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+            className="rounded bg-blue-500 text-white px-4 py-2 hover:bg-blue-600 disabled:opacity-50"
             onClick={handleSend}
+            disabled={!input.trim()}
           >
             Send
           </button>

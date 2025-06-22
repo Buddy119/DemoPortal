@@ -11,7 +11,7 @@ import uvicorn
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from main import app
-from services import gpt_service
+from services.mcp_client import mcp_client
 from sockets import websocket
 
 
@@ -43,11 +43,18 @@ async def test_websocket_user_message(start_server, monkeypatch):
     sio = socketio.AsyncClient()
     received = []
 
-    async def fake_generate_curl_example(context, user_query):
-        return "curl -X POST https://example.com/api/v1/auth -d '{\"user\":\"test\"}'"
+    class FakeCompletion:
+        def __init__(self, text, selector):
+            self.text = text
+            self.highlight_selector = selector
 
-    monkeypatch.setattr(gpt_service, "generate_curl_example", fake_generate_curl_example)
-    monkeypatch.setattr(websocket, "generate_curl_example", fake_generate_curl_example)
+    async def fake_complete(context, user_query):
+        return FakeCompletion(
+            "curl -X POST https://example.com/api/v1/auth -d '{\"user\":\"test\"}'",
+            "#user-auth-api-section",
+        )
+
+    monkeypatch.setattr(mcp_client, "complete", fake_complete)
 
     @sio.event
     async def bot_response(data):

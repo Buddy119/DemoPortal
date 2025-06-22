@@ -1,6 +1,6 @@
 import socketio
 
-from services.gpt_service import generate_curl_example
+from services.mcp_client import mcp_client
 
 # Setup Async WebSocket server
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
@@ -19,14 +19,12 @@ async def disconnect(sid):
 @sio.event
 async def user_message(sid, data):
     print(f'Received message from {sid}: {data}')
-    context = data.get("context", {})
-    user_query = data.get("userQuery", "")
-
-    curl_example = await generate_curl_example(context, user_query)
-
-    response = {
-        "responseText": curl_example,
-        "highlightSelector": "#user-auth-api-section",
-    }
-
-    await sio.emit("bot_response", response, room=sid)
+    completion = await mcp_client.complete(data.get("context", {}), data.get("userQuery", ""))
+    await sio.emit(
+        "bot_response",
+        {
+            "responseText": completion.text,
+            "highlightSelector": completion.highlight_selector,
+        },
+        room=sid,
+    )

@@ -6,9 +6,9 @@ The chat window can now highlight sections of the page when the backend sends a
 `highlightSelector` over the WebSocket connection. Highlighted elements briefly
 animate with a yellow ring to draw attention to relevant documentation.
 
-The backend integrates with the OpenAI GPT-4 API to generate example `curl`
-commands in response to chat messages. Provide your API key in a `.env` file
-based on `backend/.env.example` when running locally.
+The backend now uses the MCP Python SDK to manage context and generate
+example `curl` commands in response to chat messages. Context and highlighting
+information are handled via MCP instead of manual WebSocket payloads.
 
 ## Getting Started
 

@@ -19,7 +19,7 @@ app.include_router(chat.router)
 
 # Mount the socket.io ASGI app
 app.mount("/", socket_app)
-app.mount("/mcp", mcp_server.http_app())
+app.mount("/mcp", mcp_server.sse_app())
 
 logger.info("Application startup complete")
 

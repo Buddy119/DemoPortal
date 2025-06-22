@@ -115,9 +115,41 @@ export default function ChatWindow() {
                 }`}
               >
                 {m.sender === 'bot' ? (
-                  <ReactMarkdown className="prose prose-sm">
-                    {m.text}
-                  </ReactMarkdown>
+                  <div className="prose prose-sm">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => (
+                          <p className="mb-2 text-sm">{children}</p>
+                        ),
+                        code: ({ children }) => (
+                          <code className="bg-gray-100 px-1 rounded text-sm font-mono">
+                            {children}
+                          </code>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="bg-gray-800 text-white p-2 rounded overflow-x-auto text-sm">
+                            {children}
+                          </pre>
+                        ),
+                        a: ({ href, children }) => (
+                          <a
+                            href={href}
+                            className="text-blue-600 underline hover:text-blue-800"
+                          >
+                            {children}
+                          </a>
+                        ),
+                        ul: ({ children }) => (
+                          <ul className="list-disc pl-5">{children}</ul>
+                        ),
+                        ol: ({ children }) => (
+                          <ol className="list-decimal pl-5">{children}</ol>
+                        ),
+                      }}
+                    >
+                      {m.text}
+                    </ReactMarkdown>
+                  </div>
                 ) : (
                   m.text
                 )}

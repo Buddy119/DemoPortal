@@ -35,14 +35,14 @@ mcp_server = FastMCP(name="DevPortalServer")
 
 
 @mcp_server.tool(name="list_apis")
-def list_apis() -> List[Dict[str, str]]:
-    """Return a list of available HTTP APIs."""
+def list_all_http_apis() -> List[Dict[str, str]]:
+    """Return **every** available HTTP-API with `name`, `method`, `path`, and `description`. Use **ONLY** when the user asks to *“list / show / enumerate / count all APIs, endpoints or routes”.*"""
     return APIS
 
 
 @mcp_server.tool(name="get_api_sample")
-def get_api_sample(api_name: str) -> str:
-    """Return a curl example for the given API name."""
+def generate_curl_example_for_api(api_name: str) -> str:
+    """Return a ready-to-run `curl` command for the specified API `name`. Invoke when the user wants a **sample request, example call, or usage snippet** for a single endpoint."""
     for api in APIS:
         if api_name.lower() == api["name"].lower():
             return f"curl -X {api['method']} http://localhost:8000{api['path']}"
@@ -98,6 +98,7 @@ async def llm_chat(messages: List[Dict[str, Any]], tools_json: List[Dict[str, An
         resp.raise_for_status()
         data = resp.json()
 
+    print(f"LLM payload -> {payload}")
     message = data["choices"][0]["message"]
     if "tool_calls" in message:
         call = message["tool_calls"][0]

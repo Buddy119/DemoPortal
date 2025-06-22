@@ -1,7 +1,7 @@
 try:
-    from mcp.client.fastmcp import FastMCPClient
+    from mcp.server.fastmcp import FastMCP
 except ModuleNotFoundError:  # older SDK fallback for tests
-    class FastMCPClient:
+    class FastMCP:
         def __init__(self, *args, **kwargs):
             pass
 
@@ -9,4 +9,4 @@ except ModuleNotFoundError:  # older SDK fallback for tests
             raise NotImplementedError("FastMCPClient not available")
 
 # Initializes MCP client with a unique name
-mcp_client = FastMCPClient(name="DevPortalClient")
+mcp_client = FastMCP(name="DevPortalClient")

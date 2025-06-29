@@ -157,19 +157,13 @@ async def test_chat_invalid_mode_defaults(monkeypatch):
 async def test_agent_mode_web_search(monkeypatch):
     tool_used = {}
 
-    async def fake_llm_chat(messages, *, tools_json=None):
-        # On first call LLM should request the web_search tool
-        if len(messages) == 1 and messages[0].get("role") == "assistant":
-            return LLMReply(content="done")
-        assert any(t["function"]["name"] == "web_search" for t in tools_json)
-        return LLMReply(content=None, tool_call=ToolCall(name="web_search", arguments={"query": "cds"}))
+    class FakeAgent:
+        async def invoke(self, inputs):
+            tool_used["name"] = "web_search"
+            return {"output": "done"}
 
-    async def fake_call_tool(session, name, arguments):
-        tool_used["name"] = name
-        return "search result"
-
-    monkeypatch.setattr(client_mod, "llm_chat", fake_llm_chat)
-    monkeypatch.setattr(client_mod.mcp_client, "call_tool", fake_call_tool)
+    monkeypatch.setattr(mode_handlers, "create_agent", lambda llm=None, callbacks=None: FakeAgent())
+    monkeypatch.setattr(mode_handlers, "ChatOpenAI", lambda streaming=True: object())
 
     transport = httpx.ASGITransport(app=main.app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

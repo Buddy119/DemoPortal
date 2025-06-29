@@ -1,6 +1,10 @@
 """Handlers for chat modes."""
 
+from langchain.callbacks.base import BaseCallbackHandler
+
 from .mcp_client import mcp_client, Completion
+from .agent_factory import create_agent
+from langchain_openai import ChatOpenAI
 
 
 class ExternalSearchError(Exception):
@@ -17,17 +21,14 @@ async def handle_normal_mode(message: str) -> Completion:
     return await mcp_client.complete({}, message)
 
 
-async def handle_agent_mode(message: str) -> Completion:
-    """Process a chat message in agent mode.
-
-    The agent functionality is not implemented yet so we currently
-    fall back to the same behaviour as normal mode.  This function is
-    kept separate so that more advanced logic can be plugged in later
-    without touching the router or WebSocket code.
-    """
+async def handle_agent_mode(message: str, stream_handler: BaseCallbackHandler | None = None) -> Completion:
+    """Process a chat message in agent mode using LangChain."""
 
     try:
-        return await mcp_client.complete({}, message, include_search=True)
+        llm = ChatOpenAI(streaming=True)
+        agent = create_agent(llm, callbacks=[stream_handler] if stream_handler else None)
+        result = await agent.invoke({"input": message})
+        return Completion(text=result.get("output", ""))
     except Exception as exc:  # noqa: BLE001
         raise ExternalSearchError(str(exc)) from exc
 

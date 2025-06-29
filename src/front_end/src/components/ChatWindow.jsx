@@ -73,6 +73,9 @@ export default function ChatWindow() {
         setActiveId(data.highlightSelector.replace('#', ''));
         window.location.hash = data.highlightSelector.replace('#', '');
       }
+      if (data.mode) {
+        setMode(data.mode);
+      }
     });
     return unsubscribe;
   }, [subscribeToResponses, highlight]);

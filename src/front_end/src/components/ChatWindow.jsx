@@ -42,6 +42,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useSocket } from '../SocketProvider.jsx';
 import { useElementHighlight } from '../hooks/useElementHighlight.js';
+import { useHighlightContext } from '../highlightContext.js';
 
 function autoExpand(el, maxRows = 6) {
   if (!el) return;
@@ -59,6 +60,7 @@ export default function ChatWindow() {
   const [input, setInput] = useState('');
   const { sendMessage, subscribeToResponses } = useSocket();
   const { highlight } = useElementHighlight();
+  const { setActiveId } = useHighlightContext();
   const messagesRef = useRef(null);
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function ChatWindow() {
       setMessages((msgs) => [...msgs, { sender: 'bot', text: data.responseText }]);
       if (data.highlightSelector) {
         highlight(data.highlightSelector);
+        setActiveId(data.highlightSelector.replace('#', ''));
       }
     });
     return unsubscribe;

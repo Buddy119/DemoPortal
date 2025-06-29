@@ -10,16 +10,28 @@ from fastmcp import Client, FastMCP
 
 APIS = [
     {
+        "id": "list-users",
         "name": "listUsers",
-        "path": "/api/users",
-        "method": "GET",
         "description": "List all users",
+        "endpoint": "/api/users",
+        "method": "GET",
+        "parameters": [],
+        "curlExample": "curl -X GET '<baseURL>/api/users'",
+        "responseExample": '{"data": [{"id": 1, "name": "Alice"}]}',
+        "fields": [],
     },
     {
+        "id": "get-user",
         "name": "getUser",
-        "path": "/api/users/{id}",
-        "method": "GET",
         "description": "Get a specific user",
+        "endpoint": "/api/users/{id}",
+        "method": "GET",
+        "parameters": [
+            {"name": "id", "type": "string", "description": "User identifier"}
+        ],
+        "curlExample": "curl -X GET '<baseURL>/api/users/{id}'",
+        "responseExample": '{"data": {"id": 1, "name": "Alice"}}',
+        "fields": [],
     },
 ]
 
@@ -35,17 +47,68 @@ mcp_server = FastMCP(name="DevPortalServer")
 
 
 @mcp_server.tool(name="list_apis")
-def list_all_http_apis() -> List[Dict[str, str]]:
-    """Return **every** available HTTP-API with `name`, `method`, `path`, and `description`. Use **ONLY** when the user asks to *“list / show / enumerate / count all APIs, endpoints or routes”.*"""
-    return APIS
+def list_apis() -> List[Dict[str, str]]:
+    """List all available HTTP APIs with name, method, endpoint, and description."""
+    return [
+        {
+            "name": api["name"],
+            "method": api["method"],
+            "endpoint": api["endpoint"],
+            "description": api["description"],
+        }
+        for api in APIS
+    ]
+
+
+@mcp_server.tool(name="get_api_details")
+def get_api_details(api_name: str) -> Dict[str, Any]:
+    """Provide detailed information (method, endpoint, parameters, response example) about a specific API."""
+    for api in APIS:
+        if api["name"].lower() == api_name.lower():
+            return api
+    raise ValueError(f"API '{api_name}' not found")
 
 
 @mcp_server.tool(name="get_api_sample")
-def generate_curl_example_for_api(api_name: str) -> str:
-    """Return a ready-to-run `curl` command for the specified API `name`. Invoke when the user wants a **sample request, example call, or usage snippet** for a single endpoint."""
+def get_api_sample(api_name: str) -> str:
+    """Return a ready-to-run curl command for the specified API."""
     for api in APIS:
         if api_name.lower() == api["name"].lower():
-            return f"curl -X {api['method']} http://localhost:8000{api['path']}"
+            return api["curlExample"]
+    raise ValueError(f"API '{api_name}' not found")
+
+
+@mcp_server.tool(name="search_apis")
+def search_apis(keyword: str) -> List[Dict[str, str]]:
+    """Search and return APIs matching a keyword."""
+    keyword_lower = keyword.lower()
+    return [
+        {
+            "name": api["name"],
+            "method": api["method"],
+            "endpoint": api["endpoint"],
+            "description": api["description"],
+        }
+        for api in APIS
+        if keyword_lower in api["name"].lower() or keyword_lower in api["description"].lower()
+    ]
+
+
+@mcp_server.tool(name="get_api_parameters")
+def get_api_parameters(api_name: str) -> List[Dict[str, str]]:
+    """Return parameters for the specified API."""
+    for api in APIS:
+        if api_name.lower() == api["name"].lower():
+            return api.get("parameters", [])
+    raise ValueError(f"API '{api_name}' not found")
+
+
+@mcp_server.tool(name="get_api_response_example")
+def get_api_response_example(api_name: str) -> str:
+    """Provide an example JSON response for the specified API."""
+    for api in APIS:
+        if api_name.lower() == api["name"].lower():
+            return api["responseExample"]
     raise ValueError(f"API '{api_name}' not found")
 
 

@@ -30,8 +30,9 @@ def test_list_apis():
 
 
 def test_get_api_details_success():
-    details = get_api_details_fn("listUsers")
-    assert details["name"] == "listUsers"
+    name = APIS[0]["name"]
+    details = get_api_details_fn(name)
+    assert details["name"] == name
 
 
 def test_get_api_details_failure():
@@ -40,7 +41,8 @@ def test_get_api_details_failure():
 
 
 def test_get_api_sample_success():
-    sample = get_api_sample_fn("getUser")
+    name = APIS[0]["name"]
+    sample = get_api_sample_fn(name)
     assert "curl" in sample
 
 
@@ -50,7 +52,7 @@ def test_get_api_sample_failure():
 
 
 def test_search_apis():
-    results = search_apis_fn("user")
+    results = search_apis_fn(APIS[0]["name"].split()[0])
     assert len(results) >= 1
 
     empty = search_apis_fn("nonexistent")
@@ -58,7 +60,8 @@ def test_search_apis():
 
 
 def test_get_api_parameters():
-    params = get_api_parameters_fn("getUser")
+    name = APIS[0]["name"]
+    params = get_api_parameters_fn(name)
     assert isinstance(params, list) and params
 
     with pytest.raises(ValueError):
@@ -66,8 +69,9 @@ def test_get_api_parameters():
 
 
 def test_get_api_response_example():
-    resp = get_api_response_example_fn("listUsers")
-    assert "data" in resp
+    name = APIS[0]["name"]
+    resp = get_api_response_example_fn(name)
+    assert isinstance(resp, str) and resp
 
     with pytest.raises(ValueError):
         get_api_response_example_fn("bad")

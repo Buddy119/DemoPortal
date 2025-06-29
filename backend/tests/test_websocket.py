@@ -79,6 +79,38 @@ async def test_websocket_user_message(start_server, monkeypatch):
     response = received[0]
     assert response.get("highlightSelector") == "#user-auth-api-section"
     assert "curl -X POST" in response.get("responseText", "")
+    assert response.get("mode") == "normal"
+
+    await sio.disconnect()
+    assert not sio.connected
+
+
+@pytest.mark.asyncio
+async def test_websocket_agent_error_reverts_mode(start_server, monkeypatch):
+    sio = socketio.AsyncClient()
+    received = []
+
+    from services import mode_handlers
+
+    async def fake_agent(msg: str):
+        raise mode_handlers.ExternalSearchError("failed")
+
+    monkeypatch.setattr(mode_handlers, "handle_agent_mode", fake_agent)
+
+    @sio.event
+    async def bot_response(data):
+        received.append(data)
+
+    await sio.connect("http://127.0.0.1:8000", transports=["websocket"])
+    assert sio.connected
+
+    await sio.emit("user_message", {"userQuery": "hi", "mode": "agent"})
+    await asyncio.sleep(1)
+
+    assert len(received) == 1
+    data = received[0]
+    assert data.get("mode") == "normal"
+    assert "External retrieval failed" in data.get("responseText", "")
 
     await sio.disconnect()
     assert not sio.connected

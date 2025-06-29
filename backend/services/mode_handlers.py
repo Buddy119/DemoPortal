@@ -3,6 +3,10 @@
 from .mcp_client import mcp_client, Completion
 
 
+class ExternalSearchError(Exception):
+    """Raised when external retrieval fails in Agent Mode."""
+
+
 async def handle_normal_mode(message: str) -> Completion:
     """Process a chat message in normal mode.
 
@@ -22,5 +26,8 @@ async def handle_agent_mode(message: str) -> Completion:
     without touching the router or WebSocket code.
     """
 
-    return await mcp_client.complete({}, message, include_search=True)
+    try:
+        return await mcp_client.complete({}, message, include_search=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ExternalSearchError(str(exc)) from exc
 

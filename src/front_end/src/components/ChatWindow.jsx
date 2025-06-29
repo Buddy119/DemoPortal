@@ -36,6 +36,7 @@ function MinusIcon(props) {
   );
 }
 import React, { useEffect, useRef, useState } from 'react';
+import ModeSelector from './ModeSelector.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -58,6 +59,7 @@ export default function ChatWindow() {
     { sender: 'bot', text: 'Hello! How can we assist you?' },
   ]);
   const [input, setInput] = useState('');
+  const [mode, setMode] = useState('normal');
   const { sendMessage, subscribeToResponses } = useSocket();
   const { highlight } = useElementHighlight();
   const { setActiveId } = useHighlightContext();
@@ -94,6 +96,7 @@ export default function ChatWindow() {
         previousQueries: [],
       },
       userQuery: input,
+      mode,
     };
     sendMessage(payload);
     setMessages((msgs) => [...msgs, { sender: 'user', text: input }]);
@@ -107,12 +110,15 @@ export default function ChatWindow() {
       >
         <div className="flex justify-between items-center border-b p-2">
           <span className="font-semibold">Chat</span>
-          <button
-            className="text-gray-400 hover:text-gray-600"
-            onClick={() => setOpen(false)}
-          >
-            <MinusIcon width={16} height={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <ModeSelector currentMode={mode} onModeChange={setMode} />
+            <button
+              className="text-gray-400 hover:text-gray-600"
+              onClick={() => setOpen(false)}
+            >
+              <MinusIcon width={16} height={16} />
+            </button>
+          </div>
         </div>
         <div
           ref={messagesRef}

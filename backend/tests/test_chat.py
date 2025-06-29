@@ -152,3 +152,30 @@ async def test_chat_invalid_mode_defaults(monkeypatch):
     # Agent handler should not have been invoked
     assert "agent" not in called
 
+
+@pytest.mark.asyncio
+async def test_agent_mode_web_search(monkeypatch):
+    tool_used = {}
+
+    async def fake_llm_chat(messages, *, tools_json=None):
+        # On first call LLM should request the web_search tool
+        if len(messages) == 1 and messages[0].get("role") == "assistant":
+            return LLMReply(content="done")
+        assert any(t["function"]["name"] == "web_search" for t in tools_json)
+        return LLMReply(content=None, tool_call=ToolCall(name="web_search", arguments={"query": "cds"}))
+
+    async def fake_call_tool(session, name, arguments):
+        tool_used["name"] = name
+        return "search result"
+
+    monkeypatch.setattr(client_mod, "llm_chat", fake_llm_chat)
+    monkeypatch.setattr(client_mod.mcp_client, "call_tool", fake_call_tool)
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        resp = await ac.post("/chat", json={"message": "Tell me something", "mode": "agent"})
+
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "done"
+    assert tool_used["name"] == "web_search"
+

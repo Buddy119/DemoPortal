@@ -786,6 +786,31 @@ def get_api_response_example(api_name: str) -> str:
     raise ValueError(f"API '{api_name}' not found")
 
 
+@mcp_server.tool(name="web_search")
+async def web_search(query: str) -> str:
+    """Perform a web search using the Tavily API and return a summary."""
+    import httpx
+
+    api_key = os.getenv("SEARCH_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("SEARCH_API_KEY not configured")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://api.tavily.com/search",
+            json={"api_key": api_key, "query": query, "max_results": 3},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    if data.get("answer"):
+        return data["answer"]
+    if data.get("results"):
+        return " ".join(item.get("content", "") for item in data["results"])
+    return ""
+
+
 # --- LLM chat helper ------------------------------------------------------
 
 @dataclass
@@ -800,7 +825,7 @@ class LLMReply:
     tool_call: Optional[ToolCall] = None
 
 
-async def get_cached_tools(session: Client) -> List[Dict[str, Any]]:
+async def get_cached_tools(session: Client, include_search: bool) -> List[Dict[str, Any]]:
     if getattr(session, "_cached_tools", None) is None:
         tool_infos = await session.list_tools()
         session._cached_tools = [
@@ -814,7 +839,10 @@ async def get_cached_tools(session: Client) -> List[Dict[str, Any]]:
             }
             for t in tool_infos
         ]
-    return session._cached_tools
+    tools = session._cached_tools
+    if not include_search:
+        tools = [t for t in tools if t.get("function", {}).get("name") != "web_search"]
+    return tools
 
 
 async def llm_chat(messages: List[Dict[str, Any]], tools_json: List[Dict[str, Any]] | None) -> LLMReply:
@@ -868,13 +896,13 @@ class MCPClient:
         except Exception as exc:
             return f"Error calling tool '{name}': {exc}"
 
-    async def complete(self, context: Dict[str, Any], user_query: str) -> Completion:
+    async def complete(self, context: Dict[str, Any], user_query: str, *, include_search: bool = False) -> Completion:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_query},
         ]
         async with self._client as session:
-            tools_json = await get_cached_tools(session)
+            tools_json = await get_cached_tools(session, include_search)
             first = await llm_chat(messages, tools_json=tools_json)
             if first.tool_call is None and first.content is None:
                 first = await llm_chat(messages, tools_json=tools_json)

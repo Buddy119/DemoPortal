@@ -22,5 +22,5 @@ async def handle_agent_mode(message: str) -> Completion:
     without touching the router or WebSocket code.
     """
 
-    return await mcp_client.complete({}, message)
+    return await mcp_client.complete({}, message, include_search=True)
 

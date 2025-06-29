@@ -786,6 +786,74 @@ def get_api_response_example(api_name: str) -> str:
     raise ValueError(f"API '{api_name}' not found")
 
 
+@mcp_server.tool(name="compare_api_specs")
+def compare_api_specs(api_name: str, external_query: str) -> str:
+    """Compare an internal CDR API with an external API standard.
+
+    ``external_query`` should describe the external API to search for
+    (e.g. "UK PSD2 authorization API").  The function performs a web
+    search using the Tavily API, extracts any HTTP endpoint and method
+    mentioned in the results and returns a markdown table contrasting
+    the internal API with the discovered external details.
+    """
+
+    import httpx
+    import re
+
+    internal = None
+    for api in APIS:
+        if api_name.lower() == api["name"].lower():
+            internal = api
+            break
+    if internal is None:
+        raise ValueError(f"API '{api_name}' not found")
+
+    api_key = os.getenv("SEARCH_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("SEARCH_API_KEY not configured")
+
+    resp = httpx.post(
+        "https://api.tavily.com/search",
+        json={"api_key": api_key, "query": external_query, "max_results": 3},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    ext_text = ""
+    source_url = ""
+    if data.get("results"):
+        source_url = data["results"][0].get("url", "")
+        ext_text = " ".join(item.get("content", "") for item in data["results"])
+    elif data.get("answer"):
+        ext_text = data["answer"]
+
+    match = re.search(r"\b(GET|POST|PUT|DELETE|PATCH)\b\s+(https?://\S+|/\S+)", ext_text, re.I)
+    ext_method = match.group(1).upper() if match else "N/A"
+    ext_endpoint = match.group(2) if match else "N/A"
+
+    params_match = re.search(r"parameters?:\s*([^\n]+)", ext_text, re.I)
+    ext_params = params_match.group(1).strip() if params_match else "N/A"
+
+    security_matches = re.findall(r"(OAuth2|FAPI|SCA|OpenID Connect)", ext_text, re.I)
+    ext_security = ", ".join(dict.fromkeys(m.upper() for m in security_matches)) or "N/A"
+
+    internal_params = ", ".join(p["name"] for p in internal.get("parameters", [])) or "N/A"
+
+    table = [
+        "| Feature | Australian CDR | External API |",
+        "|---------|---------------|--------------|",
+        f"| Endpoint | {internal['endpoint']} | {ext_endpoint} |",
+        f"| HTTP Method | {internal['method']} | {ext_method} |",
+        f"| Required Parameters | {internal_params} | {ext_params} |",
+        f"| Security Protocol | FAPI compliant | {ext_security} |",
+    ]
+    if source_url:
+        table.append(f"| Documentation Source | [CDR docs](https://cdr.example) | [Link]({source_url}) |")
+
+    return "\n".join(table)
+
+
 @mcp_server.tool(name="web_search")
 async def web_search(query: str) -> str:
     """Perform a web search using the Tavily API and return a summary."""

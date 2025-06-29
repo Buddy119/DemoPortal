@@ -12,6 +12,7 @@ from services.mcp_client import (
     search_apis,
     get_api_parameters,
     get_api_response_example,
+    compare_api_specs,
 )
 
 # Decorated tools return FunctionTool objects; underlying callables are in `.fn`.
@@ -21,6 +22,7 @@ get_api_sample_fn = get_api_sample.fn
 search_apis_fn = search_apis.fn
 get_api_parameters_fn = get_api_parameters.fn
 get_api_response_example_fn = get_api_response_example.fn
+compare_api_specs_fn = compare_api_specs.fn
 
 
 def test_list_apis():
@@ -75,3 +77,35 @@ def test_get_api_response_example():
 
     with pytest.raises(ValueError):
         get_api_response_example_fn("bad")
+
+
+def test_compare_api_specs(monkeypatch):
+    result_json = {
+        "results": [
+            {
+                "url": "https://psd2.example/auth",
+                "content": "Use GET /oauth2/authorize parameters: client_id, redirect_uri. OAuth2 with SCA."
+            }
+        ]
+    }
+
+    class FakeResp:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_post(url, json, timeout):
+        return FakeResp(result_json)
+
+    import httpx
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setenv("SEARCH_API_KEY", "x")
+
+    name = APIS[0]["name"]
+    table = compare_api_specs_fn(name, "UK PSD2 authorization API")
+    assert "/oauth2/authorize" in table

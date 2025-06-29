@@ -974,3 +974,21 @@ class MCPClient:
 
 
 mcp_client = MCPClient()
+
+# LangChain adapter for MCP tools --------------------------------------------
+from langchain.tools import StructuredTool
+
+
+def _generate_structured_tools() -> list[StructuredTool]:
+    """Convert registered FastMCP tools to LangChain StructuredTool objects."""
+    return [
+        StructuredTool.from_function(
+            t.fn,
+            name=t.name,
+            description=t.description or "",
+        )
+        for t in mcp_server.list_tools()
+    ]
+
+
+structured_mcp_tools = _generate_structured_tools()

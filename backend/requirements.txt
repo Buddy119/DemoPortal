@@ -8,6 +8,8 @@ tavily-python
 fastmcp>=0.5.0
 mcp[cli]
 python-dotenv
+langchain>=0.2.0
+langchain-openai
 
 pytest
 pytest-asyncio

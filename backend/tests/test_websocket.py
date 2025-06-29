@@ -114,3 +114,42 @@ async def test_websocket_agent_error_reverts_mode(start_server, monkeypatch):
 
     await sio.disconnect()
     assert not sio.connected
+
+
+@pytest.mark.asyncio
+async def test_websocket_agent_streaming(start_server, monkeypatch):
+    sio = socketio.AsyncClient()
+    tokens = []
+    final = []
+
+    class FakeAgent:
+        def __init__(self, callbacks=None):
+            self.callbacks = callbacks or []
+
+        async def invoke(self, inputs):
+            for cb in self.callbacks:
+                await cb.on_llm_new_token("hi")
+            return {"output": "done"}
+
+    import services.mode_handlers as mode_handlers
+    monkeypatch.setattr(mode_handlers, "create_agent", lambda llm=None, callbacks=None: FakeAgent(callbacks))
+    monkeypatch.setattr(mode_handlers, "ChatOpenAI", lambda streaming=True: object())
+
+    @sio.event
+    async def bot_stream(data):
+        tokens.append(data.get("token"))
+
+    @sio.event
+    async def bot_response(data):
+        final.append(data)
+
+    await sio.connect("http://127.0.0.1:8000", transports=["websocket"])
+    await sio.emit("user_message", {"userQuery": "hi", "mode": "agent"})
+    await asyncio.sleep(1)
+
+    assert tokens == ["hi"]
+    assert final and final[0].get("mode") == "agent"
+
+    await sio.disconnect()
+    assert not sio.connected
+

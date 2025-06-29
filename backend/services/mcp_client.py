@@ -852,20 +852,15 @@ def compare_api_specs(api_name: str, external_query: str) -> str:
 @mcp_server.tool(name="web_search")
 async def web_search(query: str) -> str:
     """Perform a web search using the Tavily API and return a summary."""
-    import httpx
+    from tavily import TavilyClient
+    import asyncio
 
     api_key = os.getenv("SEARCH_API_KEY", "")
     if not api_key:
         raise RuntimeError("SEARCH_API_KEY not configured")
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            "https://api.tavily.com/search",
-            json={"api_key": api_key, "query": query, "max_results": 3},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    tavily_client = TavilyClient(api_key=api_key)
+    data = await asyncio.to_thread(tavily_client.search, query=query, max_results=3)
 
     if data.get("answer"):
         return data["answer"]

@@ -89,21 +89,12 @@ def test_compare_api_specs(monkeypatch):
         ]
     }
 
-    class FakeResp:
-        def __init__(self, data):
-            self._data = data
+    def fake_search(self, query, max_results=3):
+        assert max_results == 3
+        return result_json
 
-        def raise_for_status(self):
-            pass
-
-        def json(self):
-            return self._data
-
-    def fake_post(url, json, timeout):
-        return FakeResp(result_json)
-
-    import httpx
-    monkeypatch.setattr(httpx, "post", fake_post)
+    from tavily import TavilyClient
+    monkeypatch.setattr(TavilyClient, "search", fake_search)
     monkeypatch.setenv("SEARCH_API_KEY", "x")
 
     name = APIS[0]["name"]

@@ -797,7 +797,7 @@ def compare_api_specs(api_name: str, external_query: str) -> str:
     the internal API with the discovered external details.
     """
 
-    import httpx
+    from tavily import TavilyClient
     import re
 
     internal = None
@@ -812,13 +812,8 @@ def compare_api_specs(api_name: str, external_query: str) -> str:
     if not api_key:
         raise RuntimeError("SEARCH_API_KEY not configured")
 
-    resp = httpx.post(
-        "https://api.tavily.com/search",
-        json={"api_key": api_key, "query": external_query, "max_results": 3},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    data = resp.json()
+    tavily_client = TavilyClient(api_key=api_key)
+    data = tavily_client.search(query=external_query, max_results=3)
 
     ext_text = ""
     source_url = ""

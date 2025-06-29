@@ -69,6 +69,7 @@ export default function ChatWindow() {
       if (data.highlightSelector) {
         highlight(data.highlightSelector);
         setActiveId(data.highlightSelector.replace('#', ''));
+        window.location.hash = data.highlightSelector.replace('#', '');
       }
     });
     return unsubscribe;

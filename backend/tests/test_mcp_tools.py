@@ -1,0 +1,73 @@
+import os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from services.mcp_client import (
+    APIS,
+    list_apis,
+    get_api_details,
+    get_api_sample,
+    search_apis,
+    get_api_parameters,
+    get_api_response_example,
+)
+
+# Decorated tools return FunctionTool objects; underlying callables are in `.fn`.
+list_apis_fn = list_apis.fn
+get_api_details_fn = get_api_details.fn
+get_api_sample_fn = get_api_sample.fn
+search_apis_fn = search_apis.fn
+get_api_parameters_fn = get_api_parameters.fn
+get_api_response_example_fn = get_api_response_example.fn
+
+
+def test_list_apis():
+    apis = list_apis_fn()
+    assert len(apis) == len(APIS)
+    assert all({"name", "method", "endpoint", "description"} <= api.keys() for api in apis)
+
+
+def test_get_api_details_success():
+    details = get_api_details_fn("listUsers")
+    assert details["name"] == "listUsers"
+
+
+def test_get_api_details_failure():
+    with pytest.raises(ValueError):
+        get_api_details_fn("unknown")
+
+
+def test_get_api_sample_success():
+    sample = get_api_sample_fn("getUser")
+    assert "curl" in sample
+
+
+def test_get_api_sample_failure():
+    with pytest.raises(ValueError):
+        get_api_sample_fn("bad")
+
+
+def test_search_apis():
+    results = search_apis_fn("user")
+    assert len(results) >= 1
+
+    empty = search_apis_fn("nonexistent")
+    assert empty == []
+
+
+def test_get_api_parameters():
+    params = get_api_parameters_fn("getUser")
+    assert isinstance(params, list) and params
+
+    with pytest.raises(ValueError):
+        get_api_parameters_fn("bad")
+
+
+def test_get_api_response_example():
+    resp = get_api_response_example_fn("listUsers")
+    assert "data" in resp
+
+    with pytest.raises(ValueError):
+        get_api_response_example_fn("bad")

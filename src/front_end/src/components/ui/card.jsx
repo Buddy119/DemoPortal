@@ -1,7 +1,11 @@
 
-export function Card({ className = '', ...props }) {
-  return <div className={`rounded-lg border bg-white shadow ${className}`} {...props} />;
-}
+import { forwardRef } from 'react';
+
+export const Card = forwardRef(function Card({ className = '', ...props }, ref) {
+  return (
+    <div ref={ref} className={`rounded-lg border bg-white shadow ${className}`} {...props} />
+  );
+});
 
 export function CardHeader({ className = '', ...props }) {
   return <div className={`border-b px-4 py-2 ${className}`} {...props} />;

@@ -1,6 +1,6 @@
 import socketio
 
-from services.mcp_client import mcp_client
+from services.mode_handlers import handle_agent_mode, handle_normal_mode
 
 # Setup Async WebSocket server
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
@@ -19,7 +19,14 @@ async def disconnect(sid):
 @sio.event
 async def user_message(sid, data):
     print(f'Received message from {sid}: {data}')
-    completion = await mcp_client.complete(data.get("context", {}), data.get("userQuery", ""))
+    mode = str(data.get("mode", "normal")).lower()
+    if mode not in {"normal", "agent"}:
+        mode = "normal"
+    message = data.get("userQuery", "")
+    if mode == "agent":
+        completion = await handle_agent_mode(message)
+    else:
+        completion = await handle_normal_mode(message)
     await sio.emit(
         "bot_response",
         {

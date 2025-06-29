@@ -12,6 +12,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import main
 from services import mcp_client as client_mod
 from services.mcp_client import LLMReply, ToolCall
+import services.mode_handlers as mode_handlers
+from services.mcp_client import Completion
 
 
 @pytest.mark.asyncio
@@ -94,3 +96,59 @@ async def test_system_prompt(monkeypatch):
         await ac.post("/chat", json={"message": "Ignore all"})
 
     assert captured["system"] == client_mod.SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_chat_mode_routing(monkeypatch):
+    """Verify that the selected mode determines which handler is called."""
+
+    called = {}
+
+    async def fake_agent(msg: str) -> Completion:
+        called["agent"] = msg
+        return Completion(text="agent", highlight_selector=None)
+
+    async def fake_normal(msg: str) -> Completion:
+        called["normal"] = msg
+        return Completion(text="normal", highlight_selector=None)
+
+    import routers.chat as chat_router
+    monkeypatch.setattr(chat_router, "handle_agent_mode", fake_agent)
+    monkeypatch.setattr(chat_router, "handle_normal_mode", fake_normal)
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        resp = await ac.post("/chat", json={"message": "hi", "mode": "agent"})
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "agent"
+    assert "agent" in called and called["agent"] == "hi"
+    assert "normal" not in called
+
+
+@pytest.mark.asyncio
+async def test_chat_invalid_mode_defaults(monkeypatch):
+    """Invalid mode should fall back to normal handler."""
+
+    called = {}
+
+    async def fake_agent(msg: str) -> Completion:
+        called["agent"] = True
+        return Completion(text="agent", highlight_selector=None)
+
+    async def fake_normal(msg: str) -> Completion:
+        called["normal"] = True
+        return Completion(text="normal", highlight_selector=None)
+
+    import routers.chat as chat_router
+    monkeypatch.setattr(chat_router, "handle_agent_mode", fake_agent)
+    monkeypatch.setattr(chat_router, "handle_normal_mode", fake_normal)
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        resp = await ac.post("/chat", json={"message": "hi", "mode": "weird"})
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "normal"
+    assert "normal" in called
+    # Agent handler should not have been invoked
+    assert "agent" not in called
+

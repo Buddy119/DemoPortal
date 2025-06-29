@@ -1,7 +1,7 @@
-import { apiData } from '/src/data/apis.js';
-import { Card, CardHeader, CardTitle, CardContent } from '/src/components/ui/card.jsx';
-import { Link, useLocation } from 'react-router-dom';
-import { useHighlight } from '/src/hooks/useHighlight.js';
+import { apiGroups } from '/src/data/apiGroups.js';
+import Accordion from '/src/components/ui/accordion.jsx';
+import ApiCard from '/src/components/ApiCard.jsx';
+import { useLocation } from 'react-router-dom';
 
 export default function ApiList() {
   const location = useLocation();
@@ -9,25 +9,13 @@ export default function ApiList() {
 
   return (
     <div className="space-y-4">
-      {apiData.apis.map((api) => {
-        const id = `${api.id}-card`;
-        const ref = useHighlight(highlightId, id);
-        return (
-          <Link key={api.id} to={`/docs/${api.id}`} className="block">
-            <Card ref={ref} id={id} className="hover:shadow">
-              <CardHeader>
-                <CardTitle>{api.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-2">{api.description}</p>
-                <p className="font-mono text-sm">
-                  <span className="font-semibold">{api.method}</span> {api.endpoint}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        );
-      })}
+      {apiGroups.map((group, idx) => (
+        <Accordion key={group.title} title={group.title} defaultOpen={idx === 0}>
+          {group.apis.map((api) => (
+            <ApiCard key={api.id} api={api} highlightId={highlightId} />
+          ))}
+        </Accordion>
+      ))}
     </div>
   );
 }

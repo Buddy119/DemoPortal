@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 python-socketio
 aiohttp
+httpx
 
 fastmcp>=0.5.0
 mcp[cli]

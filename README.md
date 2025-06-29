@@ -10,6 +10,9 @@ The backend now uses the MCP Python SDK to manage context and generate
 example `curl` commands in response to chat messages. Context and highlighting
 information are handled via MCP instead of manual WebSocket payloads.
 
+When Agent Mode is enabled, the LLM can make real-time web searches via the
+Tavily API. Set a `SEARCH_API_KEY` in your `.env` file for this feature.
+
 ## Getting Started
 
 Install dependencies (if your environment allows network access) from the

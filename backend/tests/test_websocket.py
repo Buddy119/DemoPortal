@@ -126,7 +126,7 @@ async def test_websocket_agent_streaming(start_server, monkeypatch):
         def __init__(self, callbacks=None):
             self.callbacks = callbacks or []
 
-        async def invoke(self, inputs):
+        async def invoke(self, inputs, *, config=None):
             for cb in self.callbacks:
                 await cb.on_llm_new_token("hi")
             return {"output": "done"}

@@ -46,10 +46,12 @@ async def handle_agent_mode(
         )
         agent = await agent_obj if inspect.isawaitable(agent_obj) else agent_obj
 
+        invoke_config = {"callbacks": [stream_handler]} if stream_handler else None
+
         if hasattr(agent, "ainvoke"):
-            result = await agent.ainvoke({"input": message})
+            result = await agent.ainvoke({"input": message}, config=invoke_config)
         else:
-            maybe = agent.invoke({"input": message})
+            maybe = agent.invoke({"input": message}, config=invoke_config)
             result = await maybe if inspect.isawaitable(maybe) else maybe
 
         return Completion(text=result.get("output", ""))

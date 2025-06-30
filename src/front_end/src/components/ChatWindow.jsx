@@ -42,6 +42,9 @@ import MarkdownRenderer from './MarkdownRenderer.jsx';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // SSE streaming does not rely on the existing WebSocket utilities
 
+// Set to 300 or 500 to debounce streaming updates. Keep 0 to disable.
+const STREAM_DEBOUNCE_MS = 0;
+
 function autoExpand(el, maxRows = 6) {
   if (!el) return;
   el.style.height = 'auto';
@@ -61,6 +64,8 @@ export default function ChatWindow() {
   // AbortController for managing streaming requests
   const eventRef = useRef(null);
   const messagesRef = useRef(null);
+  const debounceTimeoutRef = useRef(null);
+  const pendingTokensRef = useRef('');
 
   useEffect(() => {
     return () => {
@@ -115,9 +120,22 @@ export default function ChatWindow() {
           const decoder = new TextDecoder();
           let buffer = '';
 
+          const flushPending = () => {
+            if (pendingTokensRef.current) {
+              const pending = pendingTokensRef.current;
+              pendingTokensRef.current = '';
+              setMessages((msgs) =>
+                msgs.map((m, idx) =>
+                  idx === botIndex ? { ...m, raw: (m.raw || '') + pending } : m
+                )
+              );
+            }
+          };
+
           const read = () => {
             reader.read().then(({ done, value }) => {
               if (done) {
+                flushPending();
                 setIsLoading(false);
                 return;
               }
@@ -128,6 +146,7 @@ export default function ChatWindow() {
                 if (!line.startsWith('data:')) continue;
                 const data = line.slice(5).trim();
                 if (data === '[DONE]') {
+                  flushPending();
                   setIsLoading(false);
                   controller.abort();
                   setMessages((msgs) =>
@@ -137,13 +156,22 @@ export default function ChatWindow() {
                   );
                   return;
                 }
-                setMessages((msgs) =>
-                  msgs.map((m, idx) =>
-                    idx === botIndex
-                      ? { ...m, raw: (m.raw || '') + data.replace(/\\n/g, '\n') }
-                      : m
-                  )
-                );
+                if (STREAM_DEBOUNCE_MS > 0) {
+                  pendingTokensRef.current += data;
+                  clearTimeout(debounceTimeoutRef.current);
+                  debounceTimeoutRef.current = setTimeout(
+                    flushPending,
+                    STREAM_DEBOUNCE_MS
+                  );
+                } else {
+                  setMessages((msgs) =>
+                    msgs.map((m, idx) =>
+                      idx === botIndex
+                        ? { ...m, raw: (m.raw || '') + data }
+                        : m
+                    )
+                  );
+                }
               }
               read();
             });

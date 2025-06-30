@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 import asyncio
+import inspect
 
 import fastmcp
 from fastmcp import Client, FastMCP
@@ -980,17 +981,24 @@ mcp_client = MCPClient()
 from langchain.tools import StructuredTool
 
 
-def _generate_structured_tools() -> list[StructuredTool]:
+async def _generate_structured_tools() -> list[StructuredTool]:
     """Convert registered FastMCP tools to LangChain StructuredTool objects."""
-    tools = asyncio.run(mcp_server.get_tools())
+    get_tools = getattr(mcp_server, "get_tools", None)
+    if inspect.iscoroutinefunction(get_tools):
+        tools = await get_tools()
+    elif callable(get_tools):
+        tools = get_tools()
+    else:
+        tools = mcp_server.list_tools()
+
+    tool_iter = tools.values() if isinstance(tools, dict) else tools
+
     return [
         StructuredTool.from_function(
             t.fn,
             name=t.name,
             description=t.description or "",
         )
-        for t in tools.values()
+        for t in tool_iter
     ]
 
-
-structured_mcp_tools = _generate_structured_tools()

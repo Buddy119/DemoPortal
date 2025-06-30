@@ -1,6 +1,7 @@
 """Handlers for chat modes."""
 
 from langchain.callbacks.base import BaseCallbackHandler
+import inspect
 
 from .mcp_client import mcp_client, Completion
 from .agent_factory import create_agent
@@ -26,7 +27,10 @@ async def handle_agent_mode(message: str, stream_handler: BaseCallbackHandler | 
 
     try:
         llm = ChatOpenAI(streaming=True)
-        agent = create_agent(llm, callbacks=[stream_handler] if stream_handler else None)
+        agent_obj = create_agent(
+            llm, callbacks=[stream_handler] if stream_handler else None
+        )
+        agent = await agent_obj if inspect.isawaitable(agent_obj) else agent_obj
         result = await agent.invoke({"input": message})
         return Completion(text=result.get("output", ""))
     except Exception as exc:  # noqa: BLE001

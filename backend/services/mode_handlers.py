@@ -1,4 +1,5 @@
 """Handlers for chat modes."""
+import os
 
 from langchain.callbacks.base import BaseCallbackHandler
 import inspect
@@ -26,7 +27,10 @@ async def handle_agent_mode(message: str, stream_handler: BaseCallbackHandler | 
     """Process a chat message in agent mode using LangChain."""
 
     try:
-        llm = ChatOpenAI(streaming=True)
+        base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+        api_key = os.getenv("LLM_API_KEY", "")
+        model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+        llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=model, streaming=True)
         agent_obj = create_agent(
             llm, callbacks=[stream_handler] if stream_handler else None
         )

@@ -146,7 +146,9 @@ export default function ChatWindow() {
               buffer = lines.pop();
               for (const line of lines) {
                 if (!line.startsWith('data:')) continue;
-                const data = decode(line.slice(5).trim());
+                // Slice off the leading "data: " prefix while preserving
+                // any intentional whitespace in the token itself.
+                const data = decode(line.slice(6));
                 if (data === '[DONE]') {
                   flushPending();
                   setIsLoading(false);

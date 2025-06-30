@@ -14,8 +14,8 @@ When Agent Mode is enabled, the LLM can make real-time web searches via the
 Tavily API. Set a `SEARCH_API_KEY` in your `.env` file for this feature.
 
 Agent Mode now leverages **LangChain's AgentExecutor** to autonomously call MCP
-tools. Streaming responses are delivered over the existing WebSocket channel so
-tokens appear progressively in the chat UI.
+tools. Streaming responses are delivered via a Server-Sent Events (SSE) endpoint
+so tokens appear progressively in the chat UI.
 
 ## Getting Started
 

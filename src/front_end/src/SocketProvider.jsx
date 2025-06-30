@@ -8,7 +8,10 @@ export function SocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socket = io('http://localhost:8000');
+    const socket = io('http://localhost:8000', {
+      transports: ['websocket'],
+      withCredentials: true,
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => {

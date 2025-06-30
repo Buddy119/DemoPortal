@@ -3,7 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import api, chat
 from services.mcp_client import mcp_server
-from sockets.websocket import socket_app
+from sockets.websocket import sio
+import socketio
 from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
@@ -26,9 +27,11 @@ app.add_middleware(
 app.include_router(api.router)
 app.include_router(chat.router)
 
-# Mount the socket.io ASGI app
-app.mount("/", socket_app)
+# Mount the SSE app
 app.mount("/mcp", mcp_server.sse_app())
+
+# Wrap the FastAPI app with Socket.IO ASGI app
+app = socketio.ASGIApp(sio, other_asgi_app=app)
 
 logger.info("Application startup complete")
 

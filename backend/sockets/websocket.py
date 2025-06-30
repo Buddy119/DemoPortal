@@ -11,9 +11,6 @@ from services.mode_handlers import (
 # Setup Async WebSocket server
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 
-# ASGI application to mount in FastAPI
-socket_app = socketio.ASGIApp(sio)
-
 
 class WebSocketStreamHandler(BaseCallbackHandler):
     """Stream LLM tokens to the websocket client."""

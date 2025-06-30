@@ -1,5 +1,6 @@
 import logging
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from routers import api, chat
 from services.mcp_client import mcp_server
 from sockets.websocket import socket_app
@@ -12,6 +13,14 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = FastAPI(title="Dev Portal API")
+
+# Allow frontend dev server to access the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include routers
 app.include_router(api.router)

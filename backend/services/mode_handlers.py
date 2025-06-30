@@ -34,8 +34,10 @@ async def handle_agent_mode(message: str, stream_handler: BaseCallbackHandler | 
         agent_obj = create_agent(
             llm, callbacks=[stream_handler] if stream_handler else None
         )
+        print(f"handle_agent_mode ----->agent_obj: {agent_obj}")
         agent = await agent_obj if inspect.isawaitable(agent_obj) else agent_obj
-        result = await agent.invoke({"input": message})
+        result = await agent.ainvoke({"input": message})
+        print(f"handle_agent_mode ----->result: {result}")
         return Completion(text=result.get("output", ""))
     except Exception as exc:  # noqa: BLE001
         raise ExternalSearchError(str(exc)) from exc

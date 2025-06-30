@@ -41,9 +41,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { useSocket } from '../SocketProvider.jsx';
-import { useElementHighlight } from '../hooks/useElementHighlight.js';
-import { useHighlightContext } from '../highlightContext.js';
+// SSE streaming does not rely on the existing WebSocket utilities
 
 function autoExpand(el, maxRows = 6) {
   if (!el) return;
@@ -60,25 +58,18 @@ export default function ChatWindow() {
   ]);
   const [input, setInput] = useState('');
   const [mode, setMode] = useState('normal');
-  const { sendMessage, subscribeToResponses } = useSocket();
-  const { highlight } = useElementHighlight();
-  const { setActiveId } = useHighlightContext();
+  const [isLoading, setIsLoading] = useState(false);
+  // EventSource instance used for streaming
+  const eventRef = useRef(null);
   const messagesRef = useRef(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToResponses((data) => {
-      setMessages((msgs) => [...msgs, { sender: 'bot', text: data.responseText }]);
-      if (data.highlightSelector) {
-        highlight(data.highlightSelector);
-        setActiveId(data.highlightSelector.replace('#', ''));
-        window.location.hash = data.highlightSelector.replace('#', '');
+    return () => {
+      if (eventRef.current) {
+        eventRef.current.close();
       }
-      if (data.mode) {
-        setMode(data.mode);
-      }
-    });
-    return unsubscribe;
-  }, [subscribeToResponses, highlight]);
+    };
+  }, []);
 
   useEffect(() => {
     if (messagesRef.current) {
@@ -92,18 +83,44 @@ export default function ChatWindow() {
 
   const handleSend = () => {
     if (!input.trim()) return;
-    const payload = {
-      context: {
-        currentPage: 'User Authentication API',
-        selectedLanguage: 'curl',
-        previousQueries: [],
-      },
-      userQuery: input,
-      mode,
-    };
-    sendMessage(payload);
-    setMessages((msgs) => [...msgs, { sender: 'user', text: input }]);
+    const userMessage = input;
+    const botIndex = messages.length + 1;
+    setMessages((msgs) => [
+      ...msgs,
+      { sender: 'user', text: userMessage },
+      { sender: 'bot', text: '' },
+    ]);
     setInput('');
+    setIsLoading(true);
+
+    if (eventRef.current) {
+      eventRef.current.close();
+    }
+
+    const es = new EventSource(
+      `/chat/stream?query=${encodeURIComponent(userMessage)}`
+    );
+
+    es.onmessage = (e) => {
+      if (e.data === '[DONE]') {
+        setIsLoading(false);
+        es.close();
+        return;
+      }
+      setMessages((msgs) =>
+        msgs.map((m, idx) =>
+          idx === botIndex ? { ...m, text: m.text + e.data } : m
+        )
+      );
+    };
+
+    es.onerror = () => {
+      console.error('Streaming error occurred');
+      setIsLoading(false);
+      es.close();
+    };
+
+    eventRef.current = es;
   };
 
   return (
@@ -172,6 +189,9 @@ export default function ChatWindow() {
               </motion.div>
             ))}
           </AnimatePresence>
+          {isLoading && (
+            <div className="text-sm text-gray-500">Loading...</div>
+          )}
         </div>
         <div className="flex flex-col items-stretch gap-2 border-t p-2 md:flex-row md:items-end">
           <textarea

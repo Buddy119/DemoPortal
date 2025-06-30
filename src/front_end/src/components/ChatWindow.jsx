@@ -140,7 +140,7 @@ export default function ChatWindow() {
                 setMessages((msgs) =>
                   msgs.map((m, idx) =>
                     idx === botIndex
-                      ? { ...m, raw: (m.raw || '') + data }
+                      ? { ...m, raw: (m.raw || '') + data.replace(/\\n/g, '\n') }
                       : m
                   )
                 );

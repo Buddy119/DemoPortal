@@ -158,7 +158,7 @@ async def test_agent_mode_web_search(monkeypatch):
     tool_used = {}
 
     class FakeAgent:
-        async def invoke(self, inputs):
+        async def invoke(self, inputs, *, config=None):
             tool_used["name"] = "web_search"
             return {"output": "done"}
 
@@ -172,4 +172,31 @@ async def test_agent_mode_web_search(monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["message"] == "done"
     assert tool_used["name"] == "web_search"
+
+
+@pytest.mark.asyncio
+async def test_chat_agent_streaming(monkeypatch):
+    tokens = []
+
+    class FakeAgent:
+        def __init__(self, callbacks=None):
+            self.callbacks = callbacks or []
+
+        async def invoke(self, inputs, *, config=None):
+            for cb in self.callbacks:
+                await cb.on_llm_new_token("hi")
+            return {"output": "done"}
+
+    monkeypatch.setattr(mode_handlers, "create_agent", lambda llm=None, callbacks=None: FakeAgent(callbacks))
+    monkeypatch.setattr(mode_handlers, "ChatOpenAI", lambda streaming=True, **_: object())
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        async with ac.stream("POST", "/chat", json={"message": "hi", "mode": "agent", "stream": True}) as resp:
+            async for line in resp.aiter_lines():
+                if line:
+                    tokens.append(line)
+
+    assert "data: hi" in tokens
+    assert tokens[-1] == "data: [DONE]"
 

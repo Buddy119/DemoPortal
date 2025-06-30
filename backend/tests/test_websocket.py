@@ -133,7 +133,7 @@ async def test_websocket_agent_streaming(start_server, monkeypatch):
 
     import services.mode_handlers as mode_handlers
     monkeypatch.setattr(mode_handlers, "create_agent", lambda llm=None, callbacks=None: FakeAgent(callbacks))
-    monkeypatch.setattr(mode_handlers, "ChatOpenAI", lambda streaming=True: object())
+    monkeypatch.setattr(mode_handlers, "ChatOpenAI", lambda streaming=True, **_: object())
 
     @sio.event
     async def bot_stream(data):

@@ -42,14 +42,6 @@ import MarkdownRenderer from './MarkdownRenderer.jsx';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // SSE streaming does not rely on the existing WebSocket utilities
 
-function joinToken(prev, token) {
-  if (!prev) return token;
-  if (/^\s/.test(token)) return prev + token;
-  if (/\s$/.test(prev)) return prev + token;
-  if (/^[.,!?;:]/.test(token)) return prev + token;
-  return prev + ' ' + token;
-}
-
 function autoExpand(el, maxRows = 6) {
   if (!el) return;
   el.style.height = 'auto';
@@ -61,7 +53,7 @@ function autoExpand(el, maxRows = 6) {
 export default function ChatWindow() {
   const [open, setOpen] = useState(true);
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Hello! How can we assist you?' },
+    { sender: 'bot', text: 'Hello! How can we assist you?', raw: '' },
   ]);
   const [input, setInput] = useState('');
   const [mode, setMode] = useState('normal');
@@ -99,7 +91,7 @@ export default function ChatWindow() {
     setMessages((msgs) => [
       ...msgs,
       { sender: 'user', text: userMessage },
-      { sender: 'bot', text: '' },
+      { sender: 'bot', text: '', raw: '' },
     ]);
     setInput('');
     setIsLoading(true);
@@ -138,11 +130,18 @@ export default function ChatWindow() {
                 if (data === '[DONE]') {
                   setIsLoading(false);
                   controller.abort();
+                  setMessages((msgs) =>
+                    msgs.map((m, idx) =>
+                      idx === botIndex ? { ...m, text: m.raw, raw: '' } : m
+                    )
+                  );
                   return;
                 }
                 setMessages((msgs) =>
                   msgs.map((m, idx) =>
-                    idx === botIndex ? { ...m, text: joinToken(m.text, data) } : m
+                    idx === botIndex
+                      ? { ...m, raw: (m.raw || '') + data }
+                      : m
                   )
                 );
               }
@@ -167,7 +166,7 @@ export default function ChatWindow() {
           setIsLoading(false);
           setMessages((msgs) =>
             msgs.map((m, idx) =>
-              idx === botIndex ? { ...m, text: data.message } : m
+              idx === botIndex ? { ...m, text: data.message, raw: '' } : m
             )
           );
         })
@@ -213,30 +212,34 @@ export default function ChatWindow() {
                 }`}
               >
                 {m.sender === 'bot' ? (
-                  <MarkdownRenderer
-                    components={{
-                      code({ inline, className, children, ...props }) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        return !inline ? (
-                          <div className="relative">
-                            <button
-                              onClick={() => navigator.clipboard.writeText(String(children))}
-                              className="absolute top-2 right-2 text-xs text-gray-600 hover:text-gray-800"
-                            >
-                              Copy
-                            </button>
-                            <SyntaxHighlighter language={match ? match[1] : ''} PreTag="div" {...props}>
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          </div>
-                        ) : (
-                          <code className="bg-gray-200 px-1 rounded">{children}</code>
-                        );
-                      },
-                    }}
-                  >
-                    {m.text}
-                  </MarkdownRenderer>
+                  m.text ? (
+                    <MarkdownRenderer
+                      components={{
+                        code({ inline, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline ? (
+                            <div className="relative">
+                              <button
+                                onClick={() => navigator.clipboard.writeText(String(children))}
+                                className="absolute top-2 right-2 text-xs text-gray-600 hover:text-gray-800"
+                              >
+                                Copy
+                              </button>
+                              <SyntaxHighlighter language={match ? match[1] : ''} PreTag="div" {...props}>
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            </div>
+                          ) : (
+                            <code className="bg-gray-200 px-1 rounded">{children}</code>
+                          );
+                        },
+                      }}
+                    >
+                      {m.text}
+                    </MarkdownRenderer>
+                  ) : (
+                    <pre className="whitespace-pre-wrap">{m.raw}</pre>
+                  )
                 ) : (
                   m.text
                 )}

@@ -123,12 +123,11 @@ export default function ChatWindow() {
                 return;
               }
               buffer += decoder.decode(value, { stream: true });
-              let lines = buffer.split('\n\n');
+              let lines = buffer.split(/\r?\n/);
               buffer = lines.pop();
               for (const line of lines) {
-                const match = line.match(/^data: (.*)/);
-                if (!match) continue;
-                const data = match[1];
+                if (!line.startsWith('data:')) continue;
+                const data = line.slice(5).trim();
                 if (data === '[DONE]') {
                   setIsLoading(false);
                   controller.abort();

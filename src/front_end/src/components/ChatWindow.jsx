@@ -216,7 +216,6 @@ export default function ChatWindow() {
                 {m.sender === 'bot' ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    linkTarget="_blank"
                     components={{
                       code({ inline, className, children, ...props }) {
                         const match = /language-(\w+)/.exec(className || '');
@@ -234,6 +233,11 @@ export default function ChatWindow() {
                           </div>
                         ) : (
                           <code className="bg-gray-200 px-1 rounded">{children}</code>
+                        );
+                      },
+                      a({ node, ...props }) {
+                        return (
+                          <a target="_blank" rel="noopener noreferrer" {...props} />
                         );
                       },
                       table({ children }) {

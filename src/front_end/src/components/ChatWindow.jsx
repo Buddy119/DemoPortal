@@ -59,14 +59,18 @@ export default function ChatWindow() {
   const [input, setInput] = useState('');
   const [mode, setMode] = useState('normal');
   const [isLoading, setIsLoading] = useState(false);
-  // EventSource instance used for streaming
+  // AbortController for managing streaming requests
   const eventRef = useRef(null);
   const messagesRef = useRef(null);
 
   useEffect(() => {
     return () => {
       if (eventRef.current) {
-        eventRef.current.close();
+        if (typeof eventRef.current.abort === 'function') {
+          eventRef.current.abort();
+        } else if (typeof eventRef.current.close === 'function') {
+          eventRef.current.close();
+        }
       }
     };
   }, []);
@@ -94,33 +98,78 @@ export default function ChatWindow() {
     setIsLoading(true);
 
     if (eventRef.current) {
-      eventRef.current.close();
+      eventRef.current.abort();
     }
 
-    const es = new EventSource(
-      `/chat/stream?query=${encodeURIComponent(userMessage)}`
-    );
+    if (mode === 'agent') {
+      const controller = new AbortController();
+      eventRef.current = controller;
 
-    es.onmessage = (e) => {
-      if (e.data === '[DONE]') {
-        setIsLoading(false);
-        es.close();
-        return;
-      }
-      setMessages((msgs) =>
-        msgs.map((m, idx) =>
-          idx === botIndex ? { ...m, text: m.text + e.data } : m
-        )
-      );
-    };
+      fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage, mode, stream: true }),
+        signal: controller.signal,
+      })
+        .then((resp) => {
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
 
-    es.onerror = () => {
-      console.error('Streaming error occurred');
-      setIsLoading(false);
-      es.close();
-    };
+          const read = () => {
+            reader.read().then(({ done, value }) => {
+              if (done) {
+                setIsLoading(false);
+                return;
+              }
+              buffer += decoder.decode(value, { stream: true });
+              let lines = buffer.split('\n\n');
+              buffer = lines.pop();
+              for (const line of lines) {
+                const match = line.match(/^data: (.*)/);
+                if (!match) continue;
+                const data = match[1];
+                if (data === '[DONE]') {
+                  setIsLoading(false);
+                  controller.abort();
+                  return;
+                }
+                setMessages((msgs) =>
+                  msgs.map((m, idx) =>
+                    idx === botIndex ? { ...m, text: m.text + data } : m
+                  )
+                );
+              }
+              read();
+            });
+          };
 
-    eventRef.current = es;
+          read();
+        })
+        .catch((err) => {
+          console.error('Streaming error occurred', err);
+          setIsLoading(false);
+        });
+    } else {
+      fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage, mode }),
+      })
+        .then((resp) => resp.json())
+        .then((data) => {
+          setIsLoading(false);
+          setMessages((msgs) =>
+            msgs.map((m, idx) =>
+              idx === botIndex ? { ...m, text: data.message } : m
+            )
+          );
+        })
+        .catch((err) => {
+          console.error('Request error', err);
+          setIsLoading(false);
+        });
+    }
   };
 
   return (

@@ -43,6 +43,14 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // SSE streaming does not rely on the existing WebSocket utilities
 
+function joinToken(prev, token) {
+  if (!prev) return token;
+  if (/^\s/.test(token)) return prev + token;
+  if (/\s$/.test(prev)) return prev + token;
+  if (/^[.,!?;:]/.test(token)) return prev + token;
+  return prev + ' ' + token;
+}
+
 function autoExpand(el, maxRows = 6) {
   if (!el) return;
   el.style.height = 'auto';
@@ -135,7 +143,7 @@ export default function ChatWindow() {
                 }
                 setMessages((msgs) =>
                   msgs.map((m, idx) =>
-                    idx === botIndex ? { ...m, text: m.text + data } : m
+                    idx === botIndex ? { ...m, text: joinToken(m.text, data) } : m
                   )
                 );
               }

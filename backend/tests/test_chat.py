@@ -197,6 +197,6 @@ async def test_chat_agent_streaming(monkeypatch):
                 if line:
                     tokens.append(line)
 
-    assert "data: hi\\n" in tokens
+    assert "data: hi" in tokens
     assert tokens[-1] == "data: [DONE]"
 

@@ -46,8 +46,9 @@ async def chat(req: ChatRequest):
                 token = await queue.get()
                 if token is None:
                     break
-                # Include a literal "\n" between tokens so Markdown tables render correctly
-                yield f"data: {token}\\n\n\n"
+                # Escape newline characters so the SSE protocol remains valid
+                encoded = token.replace("\n", "\\n")
+                yield f"data: {encoded}\n\n"
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")

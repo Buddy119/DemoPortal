@@ -163,7 +163,7 @@ async def test_agent_mode_web_search(monkeypatch):
             return {"output": "done"}
 
     monkeypatch.setattr(mode_handlers, "create_agent", lambda llm=None, callbacks=None: FakeAgent())
-    monkeypatch.setattr(mode_handlers, "ChatOpenAI", lambda streaming=True: object())
+    monkeypatch.setattr(mode_handlers, "ChatOpenAI", lambda streaming=True, **_: object())
 
     transport = httpx.ASGITransport(app=main.app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

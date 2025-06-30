@@ -120,9 +120,11 @@ export default function ChatWindow() {
           const decoder = new TextDecoder();
           let buffer = '';
 
+          const decode = (str) => str.replace(/\\n/g, '\n');
+
           const flushPending = () => {
             if (pendingTokensRef.current) {
-              const pending = pendingTokensRef.current;
+              const pending = decode(pendingTokensRef.current);
               pendingTokensRef.current = '';
               setMessages((msgs) =>
                 msgs.map((m, idx) =>
@@ -144,7 +146,7 @@ export default function ChatWindow() {
               buffer = lines.pop();
               for (const line of lines) {
                 if (!line.startsWith('data:')) continue;
-                const data = line.slice(5).trim();
+                const data = decode(line.slice(5).trim());
                 if (data === '[DONE]') {
                   flushPending();
                   setIsLoading(false);

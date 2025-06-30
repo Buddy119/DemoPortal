@@ -46,7 +46,8 @@ async def chat(req: ChatRequest):
                 token = await queue.get()
                 if token is None:
                     break
-                yield f"data: {token}\n\n"
+                # Include a literal "\n" between tokens so Markdown tables render correctly
+                yield f"data: {token}\\n\n\n"
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")

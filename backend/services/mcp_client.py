@@ -2,6 +2,7 @@ import json
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+import asyncio
 
 import fastmcp
 from fastmcp import Client, FastMCP
@@ -981,13 +982,14 @@ from langchain.tools import StructuredTool
 
 def _generate_structured_tools() -> list[StructuredTool]:
     """Convert registered FastMCP tools to LangChain StructuredTool objects."""
+    tools = asyncio.run(mcp_server.get_tools())
     return [
         StructuredTool.from_function(
             t.fn,
             name=t.name,
             description=t.description or "",
         )
-        for t in mcp_server.list_tools()
+        for t in tools.values()
     ]
 
 

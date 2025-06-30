@@ -216,6 +216,7 @@ export default function ChatWindow() {
                 {m.sender === 'bot' ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
+                    linkTarget="_blank"
                     components={{
                       code({ inline, className, children, ...props }) {
                         const match = /language-(\w+)/.exec(className || '');
@@ -233,6 +234,15 @@ export default function ChatWindow() {
                           </div>
                         ) : (
                           <code className="bg-gray-200 px-1 rounded">{children}</code>
+                        );
+                      },
+                      table({ children }) {
+                        return (
+                          <div className="overflow-auto">
+                            <table className="min-w-full border-collapse">
+                              {children}
+                            </table>
+                          </div>
                         );
                       },
                     }}

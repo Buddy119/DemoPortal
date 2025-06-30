@@ -38,8 +38,7 @@ function MinusIcon(props) {
 import React, { useEffect, useRef, useState } from 'react';
 import ModeSelector from './ModeSelector.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownRenderer from './MarkdownRenderer.jsx';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // SSE streaming does not rely on the existing WebSocket utilities
 
@@ -214,8 +213,7 @@ export default function ChatWindow() {
                 }`}
               >
                 {m.sender === 'bot' ? (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
+                  <MarkdownRenderer
                     components={{
                       code({ inline, className, children, ...props }) {
                         const match = /language-(\w+)/.exec(className || '');
@@ -235,24 +233,10 @@ export default function ChatWindow() {
                           <code className="bg-gray-200 px-1 rounded">{children}</code>
                         );
                       },
-                      a({ node, ...props }) {
-                        return (
-                          <a target="_blank" rel="noopener noreferrer" {...props} />
-                        );
-                      },
-                      table({ children }) {
-                        return (
-                          <div className="overflow-auto">
-                            <table className="min-w-full border-collapse">
-                              {children}
-                            </table>
-                          </div>
-                        );
-                      },
                     }}
                   >
                     {m.text}
-                  </ReactMarkdown>
+                  </MarkdownRenderer>
                 ) : (
                   m.text
                 )}

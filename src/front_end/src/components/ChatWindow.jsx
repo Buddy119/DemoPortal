@@ -251,9 +251,9 @@ export default function ChatWindow() {
                           const match = /language-(\w+)/.exec(className || '');
                           if (!inline && match && match[1] === 'mermaid') {
                             return (
-                              <pre className="mermaid">
+                              <code className="language-mermaid mermaid">
                                 {String(children).replace(/\n$/, '')}
-                              </pre>
+                              </code>
                             );
                           }
                           return !inline ? (

@@ -7,7 +7,7 @@ import DocsPage from './pages/DocsPage.jsx';
 import ApiDocs from './pages/ApiDocs.jsx';
 import ApiList from './components/ApiList.jsx';
 import { SocketProvider } from './SocketProvider.jsx';
-import { HighlightProvider } from './highlightContext.js';
+import { HighlightProvider } from './highlightContext.jsx';
 
 function RootRoutes() {
   return (

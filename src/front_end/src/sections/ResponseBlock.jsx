@@ -1,5 +1,5 @@
 import { useHighlight } from '../hooks/useHighlight.js';
-import { useHighlightContext } from '../highlightContext.js';
+import { useHighlightContext } from '../highlightContext.jsx';
 import CopyButton from '../components/CopyButton.jsx';
 
 const ResponseBlock = ({ code, id }) => {

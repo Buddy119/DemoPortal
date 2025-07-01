@@ -19,4 +19,13 @@
   .mermaid svg text {
     fill: currentColor !important;
   }
+  /* Ensure diagram lines and arrowheads remain visible */
+  .mermaid svg line,
+  .mermaid svg path,
+  .mermaid svg polygon {
+    stroke: currentColor !important;
+  }
+  .mermaid svg polygon {
+    fill: currentColor !important;
+  }
 }

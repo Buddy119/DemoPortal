@@ -1,7 +1,7 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 import asyncio
 import inspect
 
@@ -720,6 +720,64 @@ SYSTEM_PROMPT = (
 )
 
 mcp_server = FastMCP(name="DevPortalServer")
+
+# Markdown snippets with Mermaid sequence diagrams for common API flows
+DCR_FLOW_MD = """
+### DCR Flow
+```mermaid
+sequenceDiagram
+  participant ADR
+  participant DataHolder
+
+  ADR->>DataHolder: POST /cdr-register/v1/{softwareProductId}/client
+  DataHolder-->>ADR: client_id & registration details
+  ADR->>DataHolder: GET/PUT/DELETE client details as needed
+```
+"""
+
+AUTH_FLOW_MD = """
+### Authorization Flow (PAR → Authorize → Token)
+```mermaid
+sequenceDiagram
+  participant ADR
+  participant User
+  participant AuthServer
+
+  ADR->>AuthServer: POST /par
+  AuthServer-->>ADR: request_uri
+  ADR->>User: Redirect to /authorize?request_uri=...
+  User->>AuthServer: Authenticate & authorize
+  AuthServer-->>User: Authorization code
+  User-->>ADR: Redirect with code
+  ADR->>AuthServer: POST /token (exchange code)
+  AuthServer-->>ADR: access_token & id_token
+```
+"""
+
+RESOURCE_FLOW_MD = """
+### Resource API Usage
+```mermaid
+sequenceDiagram
+  participant ADR
+  participant ResourceAPI
+
+  ADR->>ResourceAPI: GET /accounts (Authorization: Bearer access_token)
+  ResourceAPI-->>ADR: accounts data
+  ADR->>ResourceAPI: GET /transactions (Authorization: Bearer access_token)
+  ResourceAPI-->>ADR: transactions data
+```
+"""
+
+
+@mcp_server.tool(name="get_api_usage_flow")
+def get_api_usage_flow(flow: Literal["dcr", "authorization", "resource"]) -> str:
+    """Return Markdown with Mermaid diagram for requested API usage flow."""
+    flows = {
+        "dcr": DCR_FLOW_MD,
+        "authorization": AUTH_FLOW_MD,
+        "resource": RESOURCE_FLOW_MD,
+    }
+    return flows[flow]
 
 
 @mcp_server.tool(name="list_apis")

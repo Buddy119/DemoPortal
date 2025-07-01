@@ -13,6 +13,7 @@ from services.mcp_client import (
     get_api_parameters,
     get_api_response_example,
     compare_api_specs,
+    get_api_usage_flow,
 )
 
 # Decorated tools return FunctionTool objects; underlying callables are in `.fn`.
@@ -23,6 +24,7 @@ search_apis_fn = search_apis.fn
 get_api_parameters_fn = get_api_parameters.fn
 get_api_response_example_fn = get_api_response_example.fn
 compare_api_specs_fn = compare_api_specs.fn
+get_api_usage_flow_fn = get_api_usage_flow.fn
 
 
 def test_list_apis():
@@ -100,3 +102,17 @@ def test_compare_api_specs(monkeypatch):
     name = APIS[0]["name"]
     table = compare_api_specs_fn(name, "UK PSD2 authorization API")
     assert "/oauth2/authorize" in table
+
+
+def test_get_api_usage_flow():
+    result = get_api_usage_flow_fn("authorization")
+    assert "Authorization Flow" in result
+    assert "sequenceDiagram" in result
+
+    result = get_api_usage_flow_fn("dcr")
+    assert "DCR Flow" in result
+    assert "sequenceDiagram" in result
+
+    result = get_api_usage_flow_fn("resource")
+    assert "Resource API Usage" in result
+    assert "sequenceDiagram" in result

@@ -10,3 +10,13 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Safari and Chrome */
 }
+
+/* Improve readability of Mermaid diagrams */
+@layer base {
+  .mermaid {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+  .mermaid svg text {
+    fill: currentColor !important;
+  }
+}

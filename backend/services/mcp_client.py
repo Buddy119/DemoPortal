@@ -771,7 +771,7 @@ sequenceDiagram
 
 @mcp_server.tool(name="get_api_usage_flow")
 def get_api_usage_flow(flow: Literal["dcr", "authorization", "resource"]) -> str:
-    """Return Markdown with Mermaid diagram for requested API usage flow."""
+    """Generate a Markdown Mermaid diagram that illustrates how a specific CDR API flow works. Available flows: 'dcr', 'authorization', or 'resource'."""
     flows = {
         "dcr": DCR_FLOW_MD,
         "authorization": AUTH_FLOW_MD,

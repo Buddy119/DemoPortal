@@ -3,7 +3,13 @@ import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
 import { useEffect, useRef } from 'react';
 
-mermaid.initialize({ startOnLoad: true });
+// Detect Tailwind's dark mode class to adjust Mermaid theme for better contrast
+const mermaidTheme =
+  typeof document !== 'undefined' &&
+  document.documentElement.classList.contains('dark')
+    ? 'dark'
+    : 'default';
+mermaid.initialize({ startOnLoad: true, theme: mermaidTheme });
 
 export default function MarkdownRenderer({ children, components = {} }) {
   const containerRef = useRef(null);

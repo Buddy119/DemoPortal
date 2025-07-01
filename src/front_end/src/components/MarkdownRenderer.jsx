@@ -10,7 +10,12 @@ export default function MarkdownRenderer({ children, components = {} }) {
 
   useEffect(() => {
     if (containerRef.current) {
-      mermaid.init(undefined, containerRef.current.querySelectorAll('.language-mermaid'));
+      const blocks = containerRef.current.querySelectorAll(
+        '.language-mermaid, .mermaid'
+      );
+      if (blocks.length > 0) {
+        mermaid.init(undefined, blocks);
+      }
     }
   }, [children]);
 

@@ -249,6 +249,13 @@ export default function ChatWindow() {
                       components={{
                         code({ inline, className, children, ...props }) {
                           const match = /language-(\w+)/.exec(className || '');
+                          if (!inline && match && match[1] === 'mermaid') {
+                            return (
+                              <pre className="mermaid">
+                                {String(children).replace(/\n$/, '')}
+                              </pre>
+                            );
+                          }
                           return !inline ? (
                             <div className="relative">
                               <button

@@ -2,3 +2,7 @@ node_modules/
 *.log
 __pycache__/
 .env
+dist/
+build/
+out/
+.idea/

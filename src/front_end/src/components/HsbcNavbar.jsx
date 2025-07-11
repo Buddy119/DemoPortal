@@ -27,10 +27,10 @@ const HsbcNavbar = ({ onFlowsToggle, onChatToggle }) => {
 
           {/* Center Navigation Menu */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-white hover:text-gray-300 px-3 py-2 text-sm font-medium transition-colors">
+            <a href="/" className="text-white hover:text-gray-300 px-3 py-2 text-sm font-medium transition-colors">
               Home
             </a>
-            <a href="#" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
+            <a href="/apis" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
               APIs
             </a>
             <a href="#" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
@@ -102,10 +102,10 @@ const HsbcNavbar = ({ onFlowsToggle, onChatToggle }) => {
         {isMobileMenuOpen && (
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t border-gray-700">
-              <a href="#" className="text-white hover:text-gray-300 block px-3 py-2 text-base font-medium">
+              <a href="/" className="text-white hover:text-gray-300 block px-3 py-2 text-base font-medium">
                 Home
               </a>
-              <a href="#" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">
+              <a href="/apis" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">
                 APIs
               </a>
               <a href="#" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">

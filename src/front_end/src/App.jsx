@@ -1,11 +1,10 @@
-import ApiList from '/src/components/ApiList.jsx';
-import ChatWindow from '/src/components/ChatWindow.jsx';
+import Homepage from './components/Homepage.jsx';
+import ChatWindow from './components/ChatWindow.jsx';
 
 export default function App() {
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">API Documentation</h1>
-      <ApiList />
+    <div className="min-h-screen">
+      <Homepage />
       <ChatWindow />
     </div>
   );

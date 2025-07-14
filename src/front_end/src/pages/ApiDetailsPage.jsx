@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiCatalog } from '../data/apisConfig.js';
 import { findApiBySlug } from '../utils/slugUtils.js';
 import ApiDetailsSidebar from '../components/ApiDetailsSidebar.jsx';
@@ -10,6 +10,7 @@ import { useResizableColumns } from '../hooks/useResizableColumns.js';
 
 export default function ApiDetailsPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [selectedLanguage, setSelectedLanguage] = useState('python');
   const { 
     widths, 
@@ -20,6 +21,14 @@ export default function ApiDetailsPage() {
   } = useResizableColumns();
   
   const currentApi = findApiBySlug(apiCatalog, slug);
+  
+  // Get the primary category for breadcrumb (first tag)
+  const primaryCategory = currentApi?.tags?.[0] || '';
+  
+  // Helper function to navigate to APIs page with category filter
+  const navigateToCategory = (category) => {
+    navigate(`/apis?filter=${encodeURIComponent(category)}`);
+  };
 
   if (!currentApi) {
     return (
@@ -67,13 +76,49 @@ export default function ApiDetailsPage() {
 
       {/* Breadcrumb */}
       <div className="bg-gray-800 border-b border-gray-700 px-6 py-2 flex-shrink-0">
-        <div className="text-sm text-gray-400">
-          <span>APIs</span>
-          <span className="mx-2">›</span>
-          <span>Corporate Banking</span>
-          <span className="mx-2">›</span>
-          <span className="text-white">{currentApi.name}</span>
-        </div>
+        <nav className="text-sm text-gray-400" aria-label="Breadcrumb">
+          <ol className="flex items-center space-x-2">
+            <li>
+              <Link 
+                to="/" 
+                className="hover:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 rounded px-1"
+                aria-label="Navigate to Home"
+              >
+                Home
+              </Link>
+            </li>
+            <li className="mx-2 text-gray-500" aria-hidden="true">›</li>
+            <li>
+              <Link 
+                to="/apis" 
+                className="hover:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 rounded px-1"
+                aria-label="Navigate to APIs listing"
+              >
+                APIs
+              </Link>
+            </li>
+            {primaryCategory && (
+              <>
+                <li className="mx-2 text-gray-500" aria-hidden="true">›</li>
+                <li>
+                  <button
+                    onClick={() => navigateToCategory(primaryCategory)}
+                    className="hover:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 rounded px-1 cursor-pointer"
+                    aria-label={`Filter APIs by ${primaryCategory} category`}
+                  >
+                    {primaryCategory}
+                  </button>
+                </li>
+              </>
+            )}
+            <li className="mx-2 text-gray-500" aria-hidden="true">›</li>
+            <li>
+              <span className="text-white font-medium" aria-current="page">
+                {currentApi.name}
+              </span>
+            </li>
+          </ol>
+        </nav>
       </div>
 
       {/* Main Layout - Resizable Three-Column Layout */}

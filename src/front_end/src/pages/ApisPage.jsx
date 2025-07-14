@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ChevronDownIcon, LockClosedIcon, MagnifyingGlassIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import { rawSidebarConfig, apiCatalog, marketOptions } from '../data/apisConfig';
 import { generateSlug } from '../utils/slugUtils';
@@ -8,6 +8,7 @@ import FlowsSidebar from '../components/FlowsSidebar';
 import ChatPanel from '../components/ChatPanel';
 
 const ApisPage = () => {
+  const [searchParams] = useSearchParams();
   const [isFlowsSidebarOpen, setIsFlowsSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -15,6 +16,21 @@ const ApisPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMarket, setSelectedMarket] = useState('All Markets');
   const [isMarketDropdownOpen, setIsMarketDropdownOpen] = useState(false);
+  
+  // Handle URL filter parameter for breadcrumb navigation
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam) {
+      // Check if the filter parameter matches a valid category
+      const isValidFilter = rawSidebarConfig.some(section => 
+        section.items.some(item => item.label === filterParam)
+      );
+      
+      if (isValidFilter) {
+        setSelectedFilters(new Set([filterParam]));
+      }
+    }
+  }, [searchParams]);
 
   // Filter APIs based on all active filters
   const filteredApis = useMemo(() => {

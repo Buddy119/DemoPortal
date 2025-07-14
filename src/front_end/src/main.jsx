@@ -8,6 +8,7 @@ import ApiDocs from './pages/ApiDocs.jsx';
 import ApiList from './components/ApiList.jsx';
 import ApisPage from './pages/ApisPage.jsx';
 import ApiDetailsPage from './pages/ApiDetailsPage.jsx';
+import SdksPage from './pages/SdksPage.jsx';
 import { SocketProvider } from './SocketProvider.jsx';
 import { HighlightProvider } from './highlightContext.jsx';
 
@@ -16,6 +17,7 @@ function RootRoutes() {
     <Routes>
       <Route path="/" element={<App />} />
       <Route path="/apis" element={<ApisPage />} />
+      <Route path="/sdks" element={<SdksPage />} />
       <Route path="/api/:slug" element={<ApiDetailsPage />} />
       <Route path="/docs" element={<DocsPage />}>
         <Route index element={<ApiList />} />

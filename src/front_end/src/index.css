@@ -7,6 +7,15 @@
   .bg-gradient-radial {
     background-image: radial-gradient(var(--tw-gradient-stops));
   }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .bg-gray-750 {
+    background-color: rgb(55 65 81 / 1);
+  }
 }
 
 /* hide scrollbar but allow scrolling */

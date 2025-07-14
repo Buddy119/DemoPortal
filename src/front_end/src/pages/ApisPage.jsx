@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronDownIcon, LockClosedIcon, MagnifyingGlassIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import { rawSidebarConfig, apiCatalog, marketOptions } from '../data/apisConfig';
+import { generateSlug } from '../utils/slugUtils';
 import HsbcNavbar from '../components/HsbcNavbar';
 import FlowsSidebar from '../components/FlowsSidebar';
 import ChatPanel from '../components/ChatPanel';
@@ -11,7 +13,7 @@ const ApisPage = () => {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState(new Set(['All']));
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMarket, setSelectedMarket] = useState('United Kingdom');
+  const [selectedMarket, setSelectedMarket] = useState('All Markets');
   const [isMarketDropdownOpen, setIsMarketDropdownOpen] = useState(false);
 
   // Filter APIs based on all active filters
@@ -33,13 +35,37 @@ const ApisPage = () => {
     // Filter by sidebar selections
     if (!selectedFilters.has('All') && selectedFilters.size > 0) {
       filtered = filtered.filter(api => {
-        // Check if API matches any selected filter
-        const matchesTags = api.tags.some(tag => selectedFilters.has(tag));
-        const matchesType = selectedFilters.has(api.type.toUpperCase());
-        const matchesSpotlight = selectedFilters.has('Spotlight') && api.locked;
-        const matchesGetStarted = selectedFilters.has('Get Started') && !api.locked;
-        
-        return matchesTags || matchesType || matchesSpotlight || matchesGetStarted;
+        // Check each selected filter against the API
+        for (const selectedFilter of selectedFilters) {
+          // Special handling for general filters
+          if (selectedFilter === 'Spotlight' && api.locked) return true;
+          if (selectedFilter === 'Get Started' && !api.locked) return true;
+          
+          // Find which category/group this filter belongs to
+          const filterGroup = rawSidebarConfig.find(section => 
+            section.items.some(item => item.label === selectedFilter)
+          );
+          
+          if (!filterGroup) continue;
+          
+          // Get the specific item to check for value mapping
+          const filterItem = filterGroup.items.find(item => item.label === selectedFilter);
+          const filterValue = filterItem?.value || selectedFilter;
+          
+          // Apply filter based on the group's filterKey
+          switch (filterGroup.filterKey) {
+            case 'tags':
+              if (api.tags.includes(filterValue)) return true;
+              break;
+            case 'type':
+              if (api.type === filterValue) return true;
+              break;
+            case 'special':
+              // Already handled above
+              break;
+          }
+        }
+        return false;
       });
     }
 
@@ -54,33 +80,34 @@ const ApisPage = () => {
       section.items.forEach(item => {
         let count = 0;
         
+        // Filter APIs by market first (or show all if "All Markets" is selected)
+        const marketFilteredApis = selectedMarket === 'All Markets' 
+          ? apiCatalog 
+          : apiCatalog.filter(api => api.market === selectedMarket);
+        
+        // Special handling for general filters
         if (item.label === 'All') {
-          count = apiCatalog.filter(api => api.market === selectedMarket).length;
+          count = marketFilteredApis.length;
         } else if (item.label === 'Get Started') {
-          count = apiCatalog.filter(api => 
-            api.market === selectedMarket && !api.locked
-          ).length;
+          count = marketFilteredApis.filter(api => !api.locked).length;
         } else if (item.label === 'Spotlight') {
-          count = apiCatalog.filter(api => 
-            api.market === selectedMarket && api.locked
-          ).length;
-        } else if (item.label === 'API') {
-          count = apiCatalog.filter(api => 
-            api.market === selectedMarket && api.type === 'api'
-          ).length;
-        } else if (item.label === 'Webhooks') {
-          count = apiCatalog.filter(api => 
-            api.market === selectedMarket && api.type === 'webhooks'
-          ).length;
-        } else if (item.label === 'Websockets') {
-          count = apiCatalog.filter(api => 
-            api.market === selectedMarket && api.type === 'websockets'
-          ).length;
+          count = marketFilteredApis.filter(api => api.locked).length;
         } else {
-          // For solution categories
-          count = apiCatalog.filter(api => 
-            api.market === selectedMarket && api.tags.includes(item.label)
-          ).length;
+          // Use the filterKey from the section to determine how to count
+          const filterValue = item.value || item.label;
+          
+          switch (section.filterKey) {
+            case 'tags':
+              count = marketFilteredApis.filter(api => api.tags.includes(filterValue)).length;
+              break;
+            case 'type':
+              count = marketFilteredApis.filter(api => api.type === filterValue).length;
+              break;
+            default:
+              // Fallback for unknown filterKey
+              count = 0;
+              break;
+          }
         }
         
         counts[item.label] = count;
@@ -92,22 +119,39 @@ const ApisPage = () => {
 
   const handleFilterClick = (filterLabel) => {
     setSelectedFilters(prev => {
-      const newFilters = new Set(prev);
-      
+      // If clicking "All", clear everything and set only "All"
       if (filterLabel === 'All') {
         return new Set(['All']);
       }
       
-      if (newFilters.has(filterLabel)) {
-        newFilters.delete(filterLabel);
-      } else {
-        newFilters.add(filterLabel);
-        newFilters.delete('All');
+      // Find which category the clicked filter belongs to
+      const clickedCategory = rawSidebarConfig.find(section => 
+        section.items.some(item => item.label === filterLabel)
+      );
+      
+      if (!clickedCategory) {
+        return prev;
       }
       
-      if (newFilters.size === 0) {
-        newFilters.add('All');
+      // Get all items from the clicked category
+      const categoryItems = clickedCategory.items.map(item => item.label);
+      
+      // If the filter is already selected in its category, deselect it
+      if (prev.has(filterLabel)) {
+        const newFilters = new Set(prev);
+        newFilters.delete(filterLabel);
+        
+        // If no filters remain after deselection, default to "All"
+        if (newFilters.size === 0) {
+          newFilters.add('All');
+        }
+        
+        return newFilters;
       }
+      
+      // Clear all existing filters and set only the clicked filter
+      // This ensures mutual exclusivity across categories
+      const newFilters = new Set([filterLabel]);
       
       return newFilters;
     });
@@ -242,7 +286,7 @@ const ApisPage = () => {
 
               {/* Results Counter */}
               <div className="hidden md:block text-sm text-gray-400">
-                Showing 1–{filteredApis.length} of {filteredApis.length} APIs
+                Showing {filteredApis.length === 0 ? '0' : '1'}–{filteredApis.length} of {apiCatalog.length} APIs
               </div>
             </div>
           </div>
@@ -251,9 +295,10 @@ const ApisPage = () => {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredApis.map((api, index) => (
-                <div
+                <Link
                   key={index}
-                  className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-gray-600 transition-colors"
+                  to={`/api/${generateSlug(api.name)}`}
+                  className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-gray-600 transition-colors block hover:bg-gray-750"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -281,7 +326,7 @@ const ApisPage = () => {
                       </span>
                     ))}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             

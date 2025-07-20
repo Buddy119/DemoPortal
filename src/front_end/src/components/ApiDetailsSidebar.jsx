@@ -1,14 +1,31 @@
-import React, { useState } from 'react';
-import { apiCatalog } from '../data/apisConfig.js';
+import React, { useState, useMemo } from 'react';
+import apiBundles from '../data/apiBundles.js';
+import apis from '../data/apisFlat.js';
 import { generateSlug } from '../utils/slugUtils.js';
 
 export default function ApiDetailsSidebar({ currentApi }) {
   const [searchTerm, setSearchTerm] = useState('');
   
-  const filteredApis = apiCatalog.filter(api => 
-    api.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    api.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get the current API's bundle and the corresponding bundle object
+  const currentBundle = useMemo(() => {
+    if (!currentApi?.bundle) return null;
+    return apiBundles.find(bundle => bundle.name === currentApi.bundle);
+  }, [currentApi]);
+
+  // Get all APIs in the current bundle
+  const bundleApis = useMemo(() => {
+    if (!currentBundle) return [];
+    return currentBundle.apis.map(apiId => apis.find(api => api.id === apiId)).filter(Boolean);
+  }, [currentBundle]);
+
+  // Filter APIs based on search term
+  const filteredApis = useMemo(() => {
+    if (!searchTerm) return bundleApis;
+    return bundleApis.filter(api => 
+      api.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      api.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [bundleApis, searchTerm]);
 
   const getMethodColor = (method) => {
     switch (method?.toUpperCase()) {
@@ -60,29 +77,21 @@ export default function ApiDetailsSidebar({ currentApi }) {
           </a>
         </nav>
 
-        {/* Corporate Banking Section */}
-        <div className="mt-8">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Corporate Banking
-          </div>
-          
-          {/* Funds Confirmation Subsection */}
-          <div className="mb-4">
-            <div className="flex items-center px-3 py-2 text-sm text-white font-medium">
-              <span>Funds Confirmation</span>
-              <svg className="w-4 h-4 ml-auto transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+        {/* Dynamic Bundle Section */}
+        {currentBundle ? (
+          <div className="mt-8">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              {currentBundle.name}
             </div>
             
-            <div className="ml-4 space-y-1">
-              {filteredApis
-                .filter(api => api.name.includes('Funds Confirmation'))
-                .map((api) => {
-                  const isActive = api.name === currentApi.name;
+            {/* Bundle APIs */}
+            <div className="space-y-1">
+              {filteredApis.length > 0 ? (
+                filteredApis.map((api) => {
+                  const isActive = api.id === currentApi.id;
                   return (
                     <a
-                      key={api.name}
+                      key={api.id}
                       href={`/api/${generateSlug(api.name)}`}
                       className={`flex items-center px-3 py-2 text-sm rounded group ${
                         isActive 
@@ -98,59 +107,41 @@ export default function ApiDetailsSidebar({ currentApi }) {
                       <span className="flex-1 truncate">{api.name}</span>
                     </a>
                   );
-                })}
+                })
+              ) : (
+                <div className="px-3 py-2 text-sm text-gray-400">
+                  {searchTerm ? 'No APIs match your search.' : 'No APIs found in this bundle.'}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Other APIs */}
-          <div className="space-y-1">
-            {filteredApis
-              .filter(api => !api.name.includes('Funds Confirmation') && api.tags.includes('Corporate'))
-              .map((api) => {
-                const isActive = api.name === currentApi.name;
-                return (
-                  <a
-                    key={api.name}
-                    href={`/api/${generateSlug(api.name)}`}
-                    className={`flex items-center px-3 py-2 text-sm rounded group ${
-                      isActive 
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                    }`}
-                  >
-                    {api.method && (
-                      <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded mr-2 ${getMethodColor(api.method)}`}>
-                        {api.method}
-                      </span>
-                    )}
-                    <span className="flex-1 truncate">{api.name}</span>
-                  </a>
-                );
-              })}
+        ) : (
+          <div className="mt-8 px-3 py-2 text-sm text-gray-400">
+            API bundle information not available.
           </div>
-        </div>
+        )}
 
-        {/* Additional Navigation Items */}
-        <div className="mt-8 space-y-1">
-          <a href="#" className="block px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded">
-            Account Information API
-          </a>
-          <a href="#" className="block px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded">
-            Collections Services API
-          </a>
-          <a href="#" className="block px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded">
-            Transfer Agency - Payment API
-          </a>
-          <a href="#" className="block px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded">
-            Treasury - Account Information
-          </a>
-          <a href="#" className="block px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded">
-            FA - ETF Order API
-          </a>
-          <a href="#" className="block px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded">
-            Sandbox Keys
-          </a>
-        </div>
+        {/* Additional Bundle Information */}
+        {currentBundle && (
+          <div className="mt-8 p-4 bg-gray-700 rounded-lg">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Bundle Info
+            </div>
+            <p className="text-sm text-gray-300 mb-2">
+              {currentBundle.description}
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {currentBundle.tags.map((tag, index) => (
+                <span
+                  key={index}
+                  className="px-2 py-1 bg-gray-600 text-gray-300 rounded-full text-xs"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

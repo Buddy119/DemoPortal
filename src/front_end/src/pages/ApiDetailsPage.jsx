@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { apiCatalog } from '../data/apisConfig.js';
+import apis from '../data/apisFlat.js';
 import { findApiBySlug } from '../utils/slugUtils.js';
 import ApiDetailsSidebar from '../components/ApiDetailsSidebar.jsx';
 import ApiDetailsMain from '../components/ApiDetailsMain.jsx';
@@ -20,7 +20,7 @@ export default function ApiDetailsPage() {
     handleResize 
   } = useResizableColumns();
   
-  const currentApi = findApiBySlug(apiCatalog, slug);
+  const currentApi = findApiBySlug(apis, slug);
   
   // Get the primary category for breadcrumb (first tag)
   const primaryCategory = currentApi?.tags?.[0] || '';
@@ -90,9 +90,9 @@ export default function ApiDetailsPage() {
             <li className="mx-2 text-gray-500" aria-hidden="true">›</li>
             <li>
               <Link 
-                to="/apis" 
+                to="/scenarios" 
                 className="hover:text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 rounded px-1"
-                aria-label="Navigate to APIs listing"
+                aria-label="Navigate to API Scenarios"
               >
                 APIs
               </Link>

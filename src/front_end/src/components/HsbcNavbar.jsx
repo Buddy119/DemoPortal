@@ -30,7 +30,7 @@ const HsbcNavbar = ({ onFlowsToggle, onChatToggle }) => {
             <a href="/" className="text-white hover:text-gray-300 px-3 py-2 text-sm font-medium transition-colors">
               Home
             </a>
-            <a href="/apis" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
+            <a href="/scenarios" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
               APIs
             </a>
             <a href="/sdks" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
@@ -105,7 +105,7 @@ const HsbcNavbar = ({ onFlowsToggle, onChatToggle }) => {
               <a href="/" className="text-white hover:text-gray-300 block px-3 py-2 text-base font-medium">
                 Home
               </a>
-              <a href="/apis" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">
+              <a href="/scenarios" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">
                 APIs
               </a>
               <a href="/sdks" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">

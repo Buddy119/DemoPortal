@@ -1,15 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 import App from './App.jsx';
 import DocsPage from './pages/DocsPage.jsx';
 import ApiDocs from './pages/ApiDocs.jsx';
 import ApiList from './components/ApiList.jsx';
-import ApisPage from './pages/ApisPage.jsx';
 import ApiDetailsPage from './pages/ApiDetailsPage.jsx';
 import SdksPage from './pages/SdksPage.jsx';
 import ScenariosPage from './pages/ScenariosPage.jsx';
+import ApiFilterPage from './pages/ApiFilterPage.jsx';
 import { SocketProvider } from './SocketProvider.jsx';
 import { HighlightProvider } from './highlightContext.jsx';
 
@@ -17,7 +17,7 @@ function RootRoutes() {
   return (
     <Routes>
       <Route path="/" element={<App />} />
-      <Route path="/apis" element={<ApisPage />} />
+      <Route path="/apis" element={<ApiFilterPage />} />
       <Route path="/sdks" element={<SdksPage />} />
       <Route path="/scenarios" element={<ScenariosPage />} />
       <Route path="/api/:slug" element={<ApiDetailsPage />} />

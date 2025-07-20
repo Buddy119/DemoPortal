@@ -1785,7 +1785,7 @@ const apiBundles = [
         ],
         market: "Global",
         locked: false,
-        apis: [],
+        apis: ["dcr-register-client","dcr-get-client", "dcr-update-client", "funds-confirmation"],
         scenario: "Open Banking – Account Management & Payments",
         customerType: [
             "Personal",

@@ -453,176 +453,228 @@ axios(config)
 });`
     }
   },
-  {
-    id: "transfer-agency-fund-dividend",
-    name: "Transfer Agency - Fund Dividend API",
-    description: "Extracts fund dividend distribution details",
-    bundle: "Dynamic Client Registration (DCR)",
-    type: "api",
-    tags: ["Corporate", "Securities Services"],
-    market: "United Kingdom",
-    locked: false
-  },
-  {
-    id: "transfer-agency-fund-static-data",
-    name: "Transfer Agency - Fund Static Data API",
-    description: "Extracts Fund/Sub-Fund/Share Class data setup details, also known as fund reference data",
-    bundle: "Dynamic Client Registration (DCR)",
-    type: "api",
-    tags: ["Corporate", "Securities Services"],
-    market: "United Kingdom",
-    locked: false
-  },
-  {
-    id: "digital-merchant-services",
-    name: "Digital Merchant Services",
-    description: "Digital Merchant Services Cards and Alternative Payment Methods Specification",
-    bundle: "Banking as a Service",
-    type: "api",
-    tags: ["Corporate", "Banking as a service"],
-    market: "United Kingdom",
-    locked: true
-  },
-  {
-    id: "trade-finance-import-payment",
-    name: "Trade Finance - Import payment",
-    description: "Request financing directly with HSBC via our Import Payment APIs",
-    bundle: "Dynamic Client Registration (DCR)",
-    type: "api",
-    tags: ["Corporate", "Open Banking"],
-    market: "United Kingdom",
-    locked: true
-  },
-  {
-    id: "transfer-agency-payment",
-    name: "Transfer Agency - Payment API",
-    description: "Extracts transactional payment and settlement details",
-    bundle: "Securities Services",
-    type: "api",
-    tags: ["Corporate", "Securities Services"],
-    market: "United Kingdom",
-    locked: true
-  },
-  {
-    id: "account-information-service",
-    name: "Account Information Service",
-    description: "Access account information and transaction history",
-    bundle: "Open Banking",
-    type: "api",
-    tags: ["Open Banking"],
-    market: "Hong Kong",
-    locked: false
-  },
-  {
-    id: "payment-initiation-service",
-    name: "Payment Initiation Service",
-    description: "Initiate payments on behalf of customers",
-    bundle: "Open Banking",
-    type: "api",
-    tags: ["Open Banking"],
-    market: "Hong Kong",
-    locked: false
-  },
-  {
-    id: "corporate-banking-api",
-    name: "Corporate Banking API",
-    description: "Comprehensive corporate banking services",
-    bundle: "Corporate",
-    type: "api",
-    tags: ["Corporate"],
-    market: "Singapore",
-    locked: false
-  },
-  {
-    id: "securities-trading-api",
-    name: "Securities Trading API",
-    description: "Execute and manage securities trading operations",
-    bundle: "Securities Services",
-    type: "api",
-    tags: ["Securities Services"],
-    market: "Singapore",
-    locked: false
-  },
-  {
-    id: "real-time-notifications",
-    name: "Real-time Notifications",
-    description: "Receive real-time notifications for account activities",
-    bundle: "Open Banking",
-    type: "webhooks",
-    tags: ["Open Banking"],
-    market: "Global",
-    locked: false
-  },
-  {
-    id: "transaction-alerts",
-    name: "Transaction Alerts",
-    description: "Get instant alerts for high-value transactions",
-    bundle: "Corporate",
-    type: "webhooks",
-    tags: ["Corporate"],
-    market: "Global",
-    locked: false
-  },
-  {
-    id: "live-market-data",
-    name: "Live Market Data",
-    description: "Real-time market data streaming",
-    bundle: "Securities Services",
-    type: "websockets",
-    tags: ["Securities Services"],
-    market: "Global",
-    locked: false
-  },
-  {
-    id: "trade-execution-stream",
-    name: "Trade Execution Stream",
-    description: "Live trade execution updates",
-    bundle: "Securities Services",
-    type: "websockets",
-    tags: ["Securities Services"],
-    market: "Global",
-    locked: false
-  },
-  {
-    id: "banking-as-a-service-core",
-    name: "Banking as a Service - Core",
-    description: "Core banking services for fintech partners",
-    bundle: "Banking as a Service",
-    type: "api",
-    tags: ["Banking as a service"],
-    market: "United Kingdom",
-    locked: false
-  },
-  {
-    id: "banking-as-a-service-payments",
-    name: "Banking as a Service - Payments",
-    description: "Payment processing services for partners",
-    bundle: "Banking as a Service",
-    type: "api",
-    tags: ["Banking as a service"],
-    market: "Hong Kong",
-    locked: false
-  },
-  {
-    id: "corporate-treasury-api",
-    name: "Corporate Treasury API",
-    description: "Treasury management and cash positioning",
-    bundle: "Corporate",
-    type: "api",
-    tags: ["Corporate"],
-    market: "Singapore",
-    locked: false
-  },
-  {
-    id: "fx-trading-api",
-    name: "FX Trading API",
-    description: "Foreign exchange trading and pricing",
-    bundle: "Corporate",
-    type: "api",
-    tags: ["Corporate", "Securities Services"],
-    market: "Global",
-    locked: false
+
+    {
+	id: "dcr-register-client",
+	name: "Post Register – Consumer Data Right",
+	description: "Register a software product with a Data Holder in accordance with the Consumer Data Right Dynamic Client Registration specification.",
+	bundle: "Dynamic Client Registration (DCR)",
+	type: "api",
+	version: "1.0",
+	method: "POST",
+	endpoint: "https://secure.api.dataholder.com/register",
+	relatedGuides: ["Dynamic Client Registration", "Software Statement Assertions"],
+	subtitle: "Submit a signed SSA‑JWT to create a client record at the Data Holder",
+	tags: ["Consumer Data Right", "Dynamic Client Registration", "Open Banking"],
+	market: "United Kingdom",
+	locked: false,
+	sections: [
+		{
+			heading: "Included",
+			markdown: `This endpoint allows an Accredited Data Recipient (ADR) to register its **Software Product** with a Data Holder by sending a signed JWT (containing the Software Statement Assertion) as the request body using the \`application/jwt\` content type.
+
+A successful call returns the newly issued \`client_id\` and the full set of registered metadata.`
+		},
+		{
+			heading: "Not included",
+			markdown: `• Updating an existing registration → **PUT /register/{clientId}**
+• Retrieving a registration → **GET /register/{clientId}**
+• Deleting a registration → **DELETE /register/{clientId}**
+• Accessing consumer banking or energy data – use sector‑specific resource APIs instead.`
+		},
+		{
+			heading: "Authentication",
+			markdown: `**Initial POST /register calls are unauthenticated** (no bearer/access token required).
+
+Subsequent management operations MUST use the **client_credentials** grant with the scope \`cdr:registration\`, authenticated via **private_key_jwt**.
+
+All traffic must occur over **HTTPS**.`
+		}
+	],
+	codeSamples: {
+		python: "import requests\n\nurl = \"https://secure.api.dataholder.com/register\"\n# SSA JWT issued by the CDR Register\njwt_payload = \"eyJhbGciOiJQUzI1NiIsInR5cCI6IkpXVCJ9....\"\nheaders = {\n    \"Content-Type\": \"application/jwt\",\n    \"Accept\": \"application/json\",\n    \"x-v\": \"1\"\n}\nresponse = requests.post(url, data=jwt_payload, headers=headers,\n                         cert=(\"cert.pem\", \"key.pem\"))\nprint(response.status_code)\nprint(response.text)",
+		curl: "curl -X POST https://secure.api.dataholder.com/register \\\n  -H 'Content-Type: application/jwt' \\\n  -H 'Accept: application/json' \\\n  -H 'x-v: 1' \\\n  --data @ssa.jwt \\\n  --cert ./cert.pem --key ./key.pem",
+		"node.js": "const axios = require('axios');\nconst fs = require('fs');\n(async () => {\n  const jwt = fs.readFileSync('./ssa.jwt', 'utf8');\n  const res = await axios.post('https://secure.api.dataholder.com/register', jwt, {\n    headers: {\n      'Content-Type': 'application/jwt',\n      'Accept': 'application/json',\n      'x-v': '1'\n    },\n    httpsAgent: new (require('https').Agent)({\n      cert: fs.readFileSync('cert.pem'),\n      key: fs.readFileSync('key.pem')\n    })\n  });\n  console.log(res.data);\n})();"
+	}
+},
+    {
+  id: "dcr-get-client",
+  name: "Get Register – Consumer Data Right",
+  description: "Retrieve registration details of a software product previously registered with a Data Holder.",
+  bundle: "Dynamic Client Registration (DCR)",
+  type: "api",
+  version: "1.0",
+  method: "GET",
+  endpoint: "https://secure.api.dataholder.com/register/{clientId}",
+  relatedGuides: ["Dynamic Client Registration", "Client Management"],
+  subtitle: "Fetch current metadata for a registered client",
+  tags: ["Consumer Data Right", "Dynamic Client Registration", "Open Banking"],
+  market: "United Kingdom",
+  locked: false,
+  sections: [
+    {
+      heading: "Included",
+      markdown: `This endpoint returns the full **registration metadata** for the specified \`clientId\`.
+
+Typical use‑cases include health checks, validation of existing redirect URIs, and troubleshooting integration issues.`
+    },
+    {
+      heading: "Not included",
+      markdown: `• Creating a new registration → **POST /register**  
+• Updating registration details → **PUT /register/{clientId}**  
+• Deleting a registration → **DELETE /register/{clientId}**  
+• Accessing consumer banking or energy data – use sector‑specific resource APIs instead.`
+    },
+    {
+      heading: "Authentication",
+      markdown: `Requires a **Bearer token** obtained with the **client_credentials** grant and scope \`cdr:registration\`, authenticated via **private_key_jwt**.
+
+All traffic must occur over **HTTPS**.`
+    }
+  ],
+  codeSamples: {
+    python: `import requests
+
+client_id = "123e4567-e89b-12d3-a456-426614174000"
+url = f"https://secure.api.dataholder.com/register/{client_id}"
+
+headers = {
+    "Authorization": "Bearer <access_token>",
+    "Accept": "application/json",
+    "x-v": "1"
+}
+
+response = requests.get(url, headers=headers, cert=("cert.pem", "key.pem"))
+print(response.status_code)
+print(response.json())`,
+    curl: `curl -X GET https://secure.api.dataholder.com/register/{clientId} \\
+  -H 'Authorization: Bearer <access_token>' \\
+  -H 'Accept: application/json' \\
+  -H 'x-v: 1' \\
+  --cert ./cert.pem --key ./key.pem`,
+    "node.js": `const axios = require('axios');
+const https = require('https');
+const fs = require('fs');
+
+(async () => {
+  const clientId = '123e4567-e89b-12d3-a456-426614174000';
+  const res = await axios.get(
+    'https://secure.api.dataholder.com/register/' + clientId,
+    {
+      headers: {
+        'Authorization': 'Bearer <access_token>',
+        'Accept': 'application/json',
+        'x-v': '1'
+      },
+      httpsAgent: new https.Agent({
+        cert: fs.readFileSync('cert.pem'),
+        key: fs.readFileSync('key.pem')
+      })
+    }
+  );
+  console.log(res.data);
+})();`
   }
+},
+    {
+  id: "dcr-update-client",
+  name: "Put Register – Consumer Data Right",
+  description: "Update the registration metadata of an existing software product at the Data Holder.",
+  bundle: "Dynamic Client Registration (DCR)",
+  type: "api",
+  version: "1.0",
+  method: "PUT",
+  endpoint: "https://secure.api.dataholder.com/register/{clientId}",
+  relatedGuides: ["Dynamic Client Registration", "Client Management"],
+  subtitle: "Modify redirect URIs, scopes, or other client properties",
+  tags: ["Consumer Data Right", "Dynamic Client Registration", "Open Banking"],
+  market: "United Kingdom",
+  locked: false,
+  sections: [
+    {
+      heading: "Included",
+      markdown: `This endpoint lets an ADR **replace** the existing registration metadata for a given \`clientId\`.
+
+Typical updates include redirect URIs, JWKS URI, token endpoint auth method, or logo URI. Any fields omitted in the payload will be reset to their default values.`
+    },
+    {
+      heading: "Not included",
+      markdown: `• Creating a new registration → **POST /register**  
+• Retrieving metadata → **GET /register/{clientId}**  
+• Deleting a registration → **DELETE /register/{clientId}**  
+• Partial / PATCH‑style modifications (must send full object).`
+    },
+    {
+      heading: "Authentication",
+      markdown: `Requires a **Bearer token** obtained with the **client_credentials** grant and scope \`cdr:registration\`, authenticated via **private_key_jwt**.
+
+All traffic must occur over **HTTPS**.`
+    }
+  ],
+  codeSamples: {
+    python: `import requests, json
+
+client_id = "123e4567-e89b-12d3-a456-426614174000"
+url = f"https://secure.api.dataholder.com/register/{client_id}"
+
+updated_metadata = {
+  "redirect_uris": [
+    "https://app.example.com/callback",
+    "https://app.example.com/alt-callback"
+  ],
+  "jwks_uri": "https://app.example.com/.well-known/jwks.json",
+  "token_endpoint_auth_method": "private_key_jwt"
+}
+
+headers = {
+  "Authorization": "Bearer <access_token>",
+  "Content-Type": "application/json",
+  "x-v": "1"
+}
+
+response = requests.put(
+  url,
+  headers=headers,
+  data=json.dumps(updated_metadata),
+  cert=("cert.pem", "key.pem")
+)
+
+print(response.status_code)
+print(response.json())`,
+    curl: `curl -X PUT https://secure.api.dataholder.com/register/{clientId} \\
+  -H 'Authorization: Bearer <access_token>' \\
+  -H 'Content-Type: application/json' \\
+  -H 'x-v: 1' \\
+  --data @updated-metadata.json \\
+  --cert ./cert.pem --key ./key.pem`,
+    "node.js": `const axios = require('axios');
+const fs = require('fs');
+const https = require('https');
+
+(async () => {
+  const clientId = '123e4567-e89b-12d3-a456-426614174000';
+  const metadata = JSON.parse(fs.readFileSync('updated-metadata.json', 'utf8'));
+
+  const res = await axios.put(
+    'https://secure.api.dataholder.com/register/' + clientId,
+    metadata,
+    {
+      headers: {
+        'Authorization': 'Bearer <access_token>',
+        'Content-Type': 'application/json',
+        'x-v': '1'
+      },
+      httpsAgent: new https.Agent({
+        cert: fs.readFileSync('cert.pem'),
+        key: fs.readFileSync('key.pem')
+      })
+    }
+  );
+  console.log(res.data);
+})();`
+  }
+}
+
 ];
 
 export default apis;

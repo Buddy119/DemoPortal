@@ -25,9 +25,9 @@ const HeroSection = () => {
         </p>
         
         <Link 
-          to="/apis"
+          to="/scenarios"
           className="group relative bg-red-600 hover:bg-red-500 text-white font-semibold py-4 px-8 sm:px-10 rounded-lg text-base sm:text-lg transition-all duration-300 inline-flex items-center focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 hover:shadow-xl hover:shadow-red-500/30 transform hover:-translate-y-1 hover:scale-105"
-          aria-label="Explore APIs"
+          aria-label="Explore API Scenarios"
         >
           <span className="relative z-10">Explore APIs</span>
           <svg className="ml-2 h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

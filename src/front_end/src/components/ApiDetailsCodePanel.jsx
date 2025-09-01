@@ -58,7 +58,12 @@ ${currentApi.codeSamples?.[selectedLanguage] || ''}`;
   };
 
   const formatCode = (code) => {
-    return code.split('\n').map((line, index) => (
+    // Remove leading blank lines to ensure proper line number alignment
+    const lines = code.split('\n');
+    const firstNonEmptyIndex = lines.findIndex(line => line.trim() !== '');
+    const trimmedLines = firstNonEmptyIndex !== -1 ? lines.slice(firstNonEmptyIndex) : lines;
+    
+    return trimmedLines.map((line, index) => (
       <div key={index} className="flex">
         <span className="text-gray-500 text-sm mr-4 select-none w-8 text-right">
           {index + 1}

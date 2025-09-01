@@ -3,6 +3,7 @@ import { XMarkIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { AnimatePresence, motion } from 'framer-motion';
 import MarkdownRenderer from './MarkdownRenderer.jsx';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { useResizableChat } from '../hooks/useResizableChat.js';
 
 // Set to 300 or 500 to debounce streaming updates. Keep 0 to disable.
 const STREAM_DEBOUNCE_MS = 0;
@@ -22,6 +23,9 @@ const ChatPanel = ({ isOpen, onClose }) => {
   const [input, setInput] = useState('');
   const [mode, setMode] = useState('normal');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Resizable chat functionality
+  const { width, isDragging, startResize, constraints } = useResizableChat();
   
   // AbortController for managing streaming requests
   const eventRef = useRef(null);
@@ -188,15 +192,63 @@ const ChatPanel = ({ isOpen, onClose }) => {
         />
       )}
       
-      {/* Chat Panel */}
+      {/* Chat Panel with Resizable Width */}
       <div 
-        className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-gray-800 text-white z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full bg-gray-800 text-white z-50 transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        } ${isDragging ? 'transition-none' : 'transition-transform'}`}
+        style={{
+          width: `${width}px`,
+          minWidth: '320px',
+          maxWidth: '800px'
+        }}
       >
+        {/* Left Resize Handle */}
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize group transition-all duration-200 ${
+            isDragging ? 'w-3' : 'hover:w-3'
+          }`}
+          onMouseDown={startResize}
+          title="Drag to resize chat window horizontally"
+        >
+          {/* Main resize handle */}
+          <div 
+            className={`h-full w-1 transition-all duration-200 ${
+              isDragging 
+                ? 'bg-red-500 shadow-lg' 
+                : 'bg-gray-600 group-hover:bg-red-400'
+            }`} 
+          />
+          
+          {/* Extended hover area for easier interaction */}
+          <div className="absolute -left-1 top-0 bottom-0 w-2 bg-transparent" />
+          
+          {/* Visual indicator dots for resize handle */}
+          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 flex flex-col justify-center items-center space-y-1">
+            <div className={`w-0.5 h-0.5 rounded-full transition-all duration-200 ${
+              isDragging ? 'bg-red-300' : 'bg-gray-400 group-hover:bg-red-300'
+            }`} />
+            <div className={`w-0.5 h-0.5 rounded-full transition-all duration-200 ${
+              isDragging ? 'bg-red-300' : 'bg-gray-400 group-hover:bg-red-300'
+            }`} />
+            <div className={`w-0.5 h-0.5 rounded-full transition-all duration-200 ${
+              isDragging ? 'bg-red-300' : 'bg-gray-400 group-hover:bg-red-300'
+            }`} />
+          </div>
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h2 className="text-lg font-semibold">Chat Assistant</h2>
+        <div className="flex items-center justify-between p-4 pl-7 border-b border-gray-700">
+          <div className="flex items-center space-x-2">
+            <h2 className="text-lg font-semibold">Chat Assistant</h2>
+            {isDragging && (
+              <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded font-mono">
+                {width}px
+                {width === constraints.min && ' (min)'}
+                {width === constraints.max && ' (max)'}
+                {width === constraints.default && ' (default)'}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             {/* Mode Toggle */}
             <div className="flex rounded-lg bg-gray-700 p-1">
@@ -233,7 +285,7 @@ const ChatPanel = ({ isOpen, onClose }) => {
         {/* Messages */}
         <div 
           ref={messagesRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent" 
+          className="flex-1 overflow-y-auto p-4 pl-7 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent" 
           style={{ height: 'calc(100% - 140px)' }}
         >
           <AnimatePresence initial={false}>
@@ -246,11 +298,14 @@ const ChatPanel = ({ isOpen, onClose }) => {
                 className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-xs px-4 py-2 rounded-lg text-sm ${
+                  className={`px-4 py-2 rounded-lg text-sm ${
                     msg.sender === 'user'
-                      ? 'bg-red-600 text-white'
+                      ? 'bg-red-600 text-white max-w-xs'
                       : 'bg-gray-700 text-gray-100'
                   }`}
+                  style={{
+                    maxWidth: msg.sender === 'bot' ? `${Math.max(280, width * 0.8)}px` : '320px'
+                  }}
                 >
                   {msg.sender === 'bot' ? (
                     msg.text ? (
@@ -314,7 +369,7 @@ const ChatPanel = ({ isOpen, onClose }) => {
         </div>
         
         {/* Input */}
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 pl-7 border-t border-gray-700">
           <div className="flex space-x-2">
             <textarea
               rows={1}

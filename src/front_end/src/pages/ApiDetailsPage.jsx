@@ -3,6 +3,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import apis from '../data/apisFlat.js';
 import { findApiBySlug } from '../utils/slugUtils.js';
 import { buildFilterPageUrl, hasFilterState, getFilterStateDescription } from '../utils/filterStateManager.js';
+import HsbcNavbar from '../components/HsbcNavbar.jsx';
+import ChatPanel from '../components/ChatPanel.jsx';
+import FlowsSidebar from '../components/FlowsSidebar.jsx';
 import ApiDetailsSidebar from '../components/ApiDetailsSidebar.jsx';
 import ApiDetailsMain from '../components/ApiDetailsMain.jsx';
 import ApiDetailsCodePanel from '../components/ApiDetailsCodePanel.jsx';
@@ -13,6 +16,11 @@ export default function ApiDetailsPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [selectedLanguage, setSelectedLanguage] = useState('python');
+  
+  // State management for sidebar panels (consistent with ApiFilterPage)
+  const [isFlowsSidebarOpen, setIsFlowsSidebarOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  
   const { 
     widths, 
     isDragging, 
@@ -41,6 +49,15 @@ export default function ApiDetailsPage() {
   };
   
   const breadcrumbHierarchy = getBreadcrumbHierarchy(currentApi);
+  
+  // Toggle handlers for sidebar panels (consistent with ApiFilterPage)
+  const handleFlowsToggle = () => {
+    setIsFlowsSidebarOpen(!isFlowsSidebarOpen);
+  };
+
+  const handleChatToggle = () => {
+    setIsChatPanelOpen(!isChatPanelOpen);
+  };
   
   // Navigation handler for "Open Banking" breadcrumb - always goes to scenarios
   const navigateToOpenBanking = () => {
@@ -82,36 +99,11 @@ export default function ApiDetailsPage() {
 
   return (
     <div className="h-screen bg-gray-900 text-white flex flex-col overflow-x-hidden">
-      {/* Top Navigation Bar */}
-      <div className="bg-gray-800 border-b border-gray-700 px-6 py-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="text-red-500 font-bold text-xl">HSBC</div>
-            <nav className="flex space-x-6">
-              <a href="#" className="text-gray-300 hover:text-white">Home</a>
-              <a href="#" className="text-white">APIs</a>
-              <a href="#" className="text-gray-300 hover:text-white">SDKs</a>
-              <a href="#" className="text-gray-300 hover:text-white">Case Studies</a>
-              <a href="#" className="text-gray-300 hover:text-white">Tools</a>
-            </nav>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Search or ask an AI..." 
-                className="bg-gray-700 text-white px-4 py-2 rounded-md w-64 text-sm"
-              />
-              <span className="absolute right-3 top-2 text-gray-400 text-xs">⌘K</span>
-            </div>
-            <button className="text-gray-300 hover:text-white">Help</button>
-            <button className="text-gray-300 hover:text-white">Login</button>
-            <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm">
-              Register
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* HSBC Navigation Bar with Chat Button */}
+      <HsbcNavbar 
+        onFlowsToggle={handleFlowsToggle}
+        onChatToggle={handleChatToggle}
+      />
 
       {/* Breadcrumb */}
       <div className="bg-gray-800 border-b border-gray-700 px-6 py-2 flex-shrink-0">
@@ -229,6 +221,18 @@ export default function ApiDetailsPage() {
           />
         </div>
       </div>
+
+      {/* Flows Sidebar - Consistent with ApiFilterPage */}
+      <FlowsSidebar 
+        isOpen={isFlowsSidebarOpen} 
+        onClose={() => setIsFlowsSidebarOpen(false)} 
+      />
+
+      {/* Chat Panel - Now Available on API Details Page */}
+      <ChatPanel 
+        isOpen={isChatPanelOpen} 
+        onClose={() => setIsChatPanelOpen(false)} 
+      />
     </div>
   );
 }

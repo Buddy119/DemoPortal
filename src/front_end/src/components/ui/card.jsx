@@ -2,8 +2,9 @@
 import { forwardRef } from 'react';
 
 export const Card = forwardRef(function Card({ className = '', ...props }, ref) {
+  const backgroundClass = /\bbg-/.test(className) ? '' : 'bg-white';
   return (
-    <div ref={ref} className={`rounded-lg border bg-white shadow ${className}`} {...props} />
+    <div ref={ref} className={`rounded-lg border shadow ${backgroundClass} ${className}`} {...props} />
   );
 });
 

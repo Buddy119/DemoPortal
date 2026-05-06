@@ -1,5 +1,6 @@
 import asyncio
 import os
+import socket
 import sys
 import threading
 import time
@@ -15,16 +16,23 @@ from services.mcp_client import mcp_client
 from sockets import websocket
 
 
+def _get_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
 @pytest.fixture(scope="module")
 def start_server():
     """Start the FastAPI + Socket.IO server in a background thread."""
-    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning", lifespan="off")
+    port = _get_free_port()
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", lifespan="off")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     # Give the server a moment to start
     time.sleep(0.5)
-    yield
+    yield f"http://127.0.0.1:{port}"
     server.should_exit = True
     thread.join()
 
@@ -32,7 +40,7 @@ def start_server():
 @pytest.mark.asyncio
 async def test_websocket_connection(start_server):
     sio = socketio.AsyncClient()
-    await sio.connect("http://127.0.0.1:8000", transports=["websocket"])
+    await sio.connect(start_server, transports=["websocket"])
     assert sio.connected
     await sio.disconnect()
     assert not sio.connected
@@ -60,7 +68,7 @@ async def test_websocket_user_message(start_server, monkeypatch):
     async def bot_response(data):
         received.append(data)
 
-    await sio.connect("http://127.0.0.1:8000", transports=["websocket"])
+    await sio.connect(start_server, transports=["websocket"])
     assert sio.connected
 
     test_message = {
@@ -92,16 +100,17 @@ async def test_websocket_agent_error_reverts_mode(start_server, monkeypatch):
 
     from services import mode_handlers
 
-    async def fake_agent(msg: str):
+    async def fake_agent(msg: str, stream_handler=None):
         raise mode_handlers.ExternalSearchError("failed")
 
     monkeypatch.setattr(mode_handlers, "handle_agent_mode", fake_agent)
+    monkeypatch.setattr(websocket, "handle_agent_mode", fake_agent)
 
     @sio.event
     async def bot_response(data):
         received.append(data)
 
-    await sio.connect("http://127.0.0.1:8000", transports=["websocket"])
+    await sio.connect(start_server, transports=["websocket"])
     assert sio.connected
 
     await sio.emit("user_message", {"userQuery": "hi", "mode": "agent"})
@@ -143,7 +152,7 @@ async def test_websocket_agent_streaming(start_server, monkeypatch):
     async def bot_response(data):
         final.append(data)
 
-    await sio.connect("http://127.0.0.1:8000", transports=["websocket"])
+    await sio.connect(start_server, transports=["websocket"])
     await sio.emit("user_message", {"userQuery": "hi", "mode": "agent"})
     await asyncio.sleep(1)
 
@@ -152,4 +161,3 @@ async def test_websocket_agent_streaming(start_server, monkeypatch):
 
     await sio.disconnect()
     assert not sio.connected
-

@@ -10,6 +10,9 @@ import ApiDetailsPage from './pages/ApiDetailsPage.jsx';
 import SdksPage from './pages/SdksPage.jsx';
 import ScenariosPage from './pages/ScenariosPage.jsx';
 import ApiFilterPage from './pages/ApiFilterPage.jsx';
+import FinancialAssistantPage from './pages/FinancialAssistantPage.jsx';
+import MockAspspAuthorizePage from './pages/MockAspspAuthorizePage.jsx';
+import OpenBankingCallbackPage from './pages/OpenBankingCallbackPage.jsx';
 import { SocketProvider } from './SocketProvider.jsx';
 import { HighlightProvider } from './highlightContext.jsx';
 
@@ -19,6 +22,9 @@ function RootRoutes() {
       <Route path="/" element={<App />} />
       <Route path="/apis" element={<ApiFilterPage />} />
       <Route path="/sdks" element={<SdksPage />} />
+      <Route path="/financial-assistant" element={<FinancialAssistantPage />} />
+      <Route path="/mock-aspsp/authorize" element={<MockAspspAuthorizePage />} />
+      <Route path="/open-banking/callback" element={<OpenBankingCallbackPage />} />
       <Route path="/scenarios" element={<ScenariosPage />} />
       <Route path="/api/:slug" element={<ApiDetailsPage />} />
       <Route path="/docs" element={<DocsPage />}>

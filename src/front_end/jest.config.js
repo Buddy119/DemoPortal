@@ -1,3 +1,6 @@
 export default {
-  testEnvironment: 'jsdom'
+  testEnvironment: 'jsdom',
+  transform: {
+    '^.+\\.jsx$': '<rootDir>/jest.esbuild-transform.cjs'
+  }
 };

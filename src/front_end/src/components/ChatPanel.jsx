@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import MarkdownRenderer from './MarkdownRenderer.jsx';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useResizableChat } from '../hooks/useResizableChat.js';
+import { API_BASE_URL } from '../utils/apiConfig.js';
 
 // Set to 300 or 500 to debounce streaming updates. Keep 0 to disable.
 const STREAM_DEBOUNCE_MS = 0;
@@ -75,7 +76,7 @@ const ChatPanel = ({ isOpen, onClose }) => {
       const controller = new AbortController();
       eventRef.current = controller;
 
-      fetch('http://localhost:8000/chat', {
+      fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage, mode, stream: true }),
@@ -154,7 +155,7 @@ const ChatPanel = ({ isOpen, onClose }) => {
           setIsLoading(false);
         });
     } else {
-      fetch('http://localhost:8000/chat', {
+      fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage, mode }),

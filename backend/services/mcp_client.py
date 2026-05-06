@@ -929,6 +929,178 @@ async def web_search(query: str) -> str:
     return ""
 
 
+from .financial_tools import (
+    ais_analyze_spending_change as financial_ais_analyze_spending_change,
+    ais_detect_subscriptions as financial_ais_detect_subscriptions,
+    ais_detect_upcoming_bills as financial_ais_detect_upcoming_bills,
+    ais_get_balances as financial_ais_get_balances,
+    ais_get_transactions as financial_ais_get_transactions,
+    ais_list_accounts as financial_ais_list_accounts,
+    ais_start_consent_journey as financial_ais_start_consent_journey,
+    analyze_spending_change as financial_analyze_spending_change,
+    detect_subscriptions as financial_detect_subscriptions,
+    detect_upcoming_bills as financial_detect_upcoming_bills,
+    get_transactions as financial_get_transactions,
+    list_accounts as financial_list_accounts,
+    pis_get_domestic_payment_consent_status as financial_pis_get_domestic_payment_consent_status,
+    pis_prepare_domestic_payment_consent as financial_pis_prepare_domestic_payment_consent,
+    pis_prepare_domestic_scheduled_payment_consent as financial_pis_prepare_domestic_scheduled_payment_consent,
+    pis_prepare_domestic_vrp_consent as financial_pis_prepare_domestic_vrp_consent,
+    pis_prepare_payment_review as financial_pis_prepare_payment_review,
+    pis_start_payment_journey as financial_pis_start_payment_journey,
+    prepare_payment_draft as financial_prepare_payment_draft,
+)
+
+
+@mcp_server.tool(name="ais_list_accounts")
+def ais_list_financial_accounts(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """List AIS accounts using OB UK Read/Write API v4-style mock responses."""
+    return financial_ais_list_accounts(user_id)
+
+
+@mcp_server.tool(name="ais_get_balances")
+def ais_get_financial_balances(user_id: str = "demo-user-001", account_id: str | None = None) -> Dict[str, Any]:
+    """Get AIS balances using OB UK Read/Write API v4-style mock responses."""
+    return financial_ais_get_balances(user_id, account_id)
+
+
+@mcp_server.tool(name="ais_get_transactions")
+def ais_get_financial_transactions(
+    user_id: str = "demo-user-001",
+    from_date: str | None = None,
+    to_date: str | None = None,
+    account_id: str | None = None,
+) -> Dict[str, Any]:
+    """Get AIS transactions using OB UK Read/Write API v4-style mock responses."""
+    return financial_ais_get_transactions(user_id, from_date, to_date, account_id)
+
+
+@mcp_server.tool(name="ais_analyze_spending_change")
+def ais_analyze_financial_spending_change(
+    user_id: str = "demo-user-001",
+    current_month: str | None = None,
+    previous_month: str | None = None,
+) -> Dict[str, Any]:
+    """Use deterministic backend logic to compare AIS spending by category."""
+    return financial_ais_analyze_spending_change(user_id, current_month, previous_month)
+
+
+@mcp_server.tool(name="ais_detect_subscriptions")
+def ais_detect_financial_subscriptions(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Detect recurring subscription candidates from normalized AIS transactions."""
+    return financial_ais_detect_subscriptions(user_id)
+
+
+@mcp_server.tool(name="ais_detect_upcoming_bills")
+def ais_detect_financial_upcoming_bills(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Detect likely upcoming bills from normalized AIS transactions."""
+    return financial_ais_detect_upcoming_bills(user_id)
+
+
+@mcp_server.tool(name="ais_start_consent_journey")
+def ais_start_financial_consent_journey(
+    user_id: str = "demo-user-001",
+    conversation_id: str | None = None,
+    original_message: str = "",
+) -> Dict[str, Any]:
+    """Start an AIS account-access-consent redirect journey before protected AIS tool access."""
+    return financial_ais_start_consent_journey(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        original_message=original_message,
+    )
+
+
+@mcp_server.tool(name="pis_prepare_domestic_payment_consent")
+def pis_prepare_financial_domestic_payment_consent(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Prepare PIS domestic payment consents for review only. This never executes payments."""
+    return financial_pis_prepare_domestic_payment_consent(user_id)
+
+
+@mcp_server.tool(name="pis_start_payment_journey")
+def pis_start_financial_payment_journey(
+    user_id: str = "demo-user-001",
+    message: str = "",
+    payment_type: str | None = None,
+) -> Dict[str, Any]:
+    """Start a PIS payment journey and identify payment type/details required."""
+    return financial_pis_start_payment_journey(user_id=user_id, message=message, payment_type=payment_type)
+
+
+@mcp_server.tool(name="pis_prepare_domestic_scheduled_payment_consent")
+def pis_prepare_financial_domestic_scheduled_payment_consent(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Prepare PIS domestic scheduled payment consents for review only. This never executes payments."""
+    return financial_pis_prepare_domestic_scheduled_payment_consent(user_id)
+
+
+@mcp_server.tool(name="pis_prepare_domestic_vrp_consent")
+def pis_prepare_financial_domestic_vrp_consent(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Prepare PIS domestic VRP consents for review only. This never executes payments."""
+    return financial_pis_prepare_domestic_vrp_consent(user_id)
+
+
+@mcp_server.tool(name="pis_prepare_payment_review")
+def pis_prepare_financial_payment_review(
+    user_id: str = "demo-user-001",
+    message: str = "",
+) -> Dict[str, Any]:
+    """Prepare an editable PIS payment review table. This never executes payments."""
+    return financial_pis_prepare_payment_review(user_id=user_id, message=message)
+
+
+@mcp_server.tool(name="pis_get_domestic_payment_consent_status")
+def pis_get_financial_domestic_payment_consent_status(
+    consent_id: str,
+    user_id: str = "demo-user-001",
+) -> Dict[str, Any]:
+    """Get the status of a prepared PIS domestic payment consent."""
+    return financial_pis_get_domestic_payment_consent_status(consent_id, user_id)
+
+
+@mcp_server.tool(name="list_accounts")
+def list_financial_accounts(user_id: str = "demo-user-001") -> List[Dict[str, Any]]:
+    """List mock Open Banking accounts and balances for the demo user."""
+    return financial_list_accounts(user_id)
+
+
+@mcp_server.tool(name="get_transactions")
+def get_financial_transactions(
+    user_id: str = "demo-user-001",
+    from_date: str | None = None,
+    to_date: str | None = None,
+) -> List[Dict[str, Any]]:
+    """Return mock Open Banking transactions for an optional date range."""
+    return financial_get_transactions(user_id, from_date, to_date)
+
+
+@mcp_server.tool(name="analyze_spending_change")
+def analyze_financial_spending_change(
+    user_id: str = "demo-user-001",
+    current_month: str | None = None,
+    previous_month: str | None = None,
+) -> Dict[str, Any]:
+    """Deterministically compare spending by category between two months."""
+    return financial_analyze_spending_change(user_id, current_month, previous_month)
+
+
+@mcp_server.tool(name="detect_subscriptions")
+def detect_financial_subscriptions(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Detect likely recurring subscriptions and recurring bills from mock transactions."""
+    return financial_detect_subscriptions(user_id)
+
+
+@mcp_server.tool(name="detect_upcoming_bills")
+def detect_financial_upcoming_bills(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Detect recurring bills likely due within the next seven demo days."""
+    return financial_detect_upcoming_bills(user_id)
+
+
+@mcp_server.tool(name="prepare_payment_draft")
+def prepare_financial_payment_draft(user_id: str = "demo-user-001") -> Dict[str, Any]:
+    """Prepare payment drafts for review only. This tool never executes payments."""
+    return financial_prepare_payment_draft(user_id)
+
+
 # --- LLM chat helper ------------------------------------------------------
 
 @dataclass
@@ -1059,4 +1231,3 @@ async def _generate_structured_tools() -> list[StructuredTool]:
         )
         for t in tool_iter
     ]
-

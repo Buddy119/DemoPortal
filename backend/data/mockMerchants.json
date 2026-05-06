@@ -1,0 +1,20 @@
+[
+  {"merchantId": "m-netflix", "name": "Netflix", "category": "Subscription", "recurring": true, "billLike": true},
+  {"merchantId": "m-spotify", "name": "Spotify", "category": "Subscription", "recurring": true, "billLike": true},
+  {"merchantId": "m-icloud", "name": "Apple iCloud", "category": "Subscription", "recurring": true, "billLike": true},
+  {"merchantId": "m-singtel", "name": "Singtel Mobile", "category": "Telecom", "recurring": true, "billLike": true},
+  {"merchantId": "m-electricity", "name": "SP Group Electricity", "category": "Utilities", "recurring": true, "billLike": true},
+  {"merchantId": "m-gym", "name": "Anytime Fitness", "category": "Subscription", "recurring": true, "billLike": true},
+  {"merchantId": "m-grab", "name": "Grab", "category": "Transport", "recurring": false, "billLike": false},
+  {"merchantId": "m-fairprice", "name": "FairPrice", "category": "Groceries", "recurring": false, "billLike": false},
+  {"merchantId": "m-colds", "name": "Cold Storage", "category": "Groceries", "recurring": false, "billLike": false},
+  {"merchantId": "m-dtf", "name": "Din Tai Fung", "category": "Dining", "recurring": false, "billLike": false},
+  {"merchantId": "m-foodpanda", "name": "Foodpanda", "category": "Dining", "recurring": false, "billLike": false},
+  {"merchantId": "m-starbucks", "name": "Starbucks", "category": "Dining", "recurring": false, "billLike": false},
+  {"merchantId": "m-sia", "name": "Singapore Airlines", "category": "Travel", "recurring": false, "billLike": false},
+  {"merchantId": "m-hotel", "name": "Marina Bay Hotel", "category": "Travel", "recurring": false, "billLike": false},
+  {"merchantId": "m-uniqlo", "name": "Uniqlo", "category": "Shopping", "recurring": false, "billLike": false},
+  {"merchantId": "m-lazada", "name": "Lazada", "category": "Shopping", "recurring": false, "billLike": false},
+  {"merchantId": "m-cinema", "name": "Golden Village", "category": "Entertainment", "recurring": false, "billLike": false},
+  {"merchantId": "m-salary", "name": "HSBC Payroll", "category": "Income", "recurring": true, "billLike": false}
+]

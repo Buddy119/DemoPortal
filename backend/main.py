@@ -1,7 +1,8 @@
 import logging
-from fastapi import FastAPI
+import time
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from routers import api, chat
+from routers import api, chat, financial
 from services.mcp_client import mcp_server
 from sockets.websocket import sio
 import socketio
@@ -15,6 +16,24 @@ load_dotenv()
 
 app = FastAPI(title="Dev Portal API")
 
+
+@app.middleware("http")
+async def log_http_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    if request.url.path.startswith(("/api", "/chat", "/mcp")):
+        logger.info(
+            "HTTP %s %s%s -> %s %.1fms client=%s",
+            request.method,
+            request.url.path,
+            f"?{request.url.query}" if request.url.query else "",
+            response.status_code,
+            duration_ms,
+            request.client.host if request.client else "unknown",
+        )
+    return response
+
 # Allow frontend dev server to access the API
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +45,7 @@ app.add_middleware(
 # Include routers
 app.include_router(api.router)
 app.include_router(chat.router)
+app.include_router(financial.router)
 
 # Mount the SSE app
 app.mount("/mcp", mcp_server.sse_app())
@@ -34,4 +54,3 @@ app.mount("/mcp", mcp_server.sse_app())
 app = socketio.ASGIApp(sio, other_asgi_app=app)
 
 logger.info("Application startup complete")
-

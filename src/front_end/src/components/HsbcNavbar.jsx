@@ -3,9 +3,14 @@ import { useState } from 'react';
 
 const HsbcNavbar = ({ onFlowsToggle, onChatToggle }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const navClass = (path) =>
+    `relative px-3 py-2 text-sm font-medium transition-colors ${
+      currentPath === path ? 'text-white after:absolute after:left-3 after:right-3 after:-bottom-3 after:h-0.5 after:bg-red-500' : 'text-gray-300 hover:text-white'
+    }`;
 
   return (
-    <header className="bg-gray-900 text-white">
+    <header className="bg-transparent text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left side - Flows button + Logo */}
@@ -27,14 +32,17 @@ const HsbcNavbar = ({ onFlowsToggle, onChatToggle }) => {
 
           {/* Center Navigation Menu */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="/" className="text-white hover:text-gray-300 px-3 py-2 text-sm font-medium transition-colors">
+            <a href="/" className={navClass('/')}>
               Home
             </a>
-            <a href="/scenarios" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
+            <a href="/scenarios" className={navClass('/scenarios')}>
               APIs
             </a>
-            <a href="/sdks" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
+            <a href="/sdks" className={navClass('/sdks')}>
               SDKs
+            </a>
+            <a href="/financial-assistant" className={navClass('/financial-assistant')}>
+              Financial Assistant
             </a>
             <a href="#" className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors">
               Case Studies
@@ -110,6 +118,9 @@ const HsbcNavbar = ({ onFlowsToggle, onChatToggle }) => {
               </a>
               <a href="/sdks" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">
                 SDKs
+              </a>
+              <a href="/financial-assistant" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">
+                Financial Assistant
               </a>
               <a href="#" className="text-gray-300 hover:text-white block px-3 py-2 text-base font-medium">
                 Case Studies

@@ -21,9 +21,14 @@ from services.financial_consent_journey_service import (
     handle_open_banking_callback,
     start_pis_consent_journey,
 )
-from services.financial_conversation_store import clear_conversations
-from services.financial_data_service import list_accounts
+from services.financial_conversation_store import clear_conversations, get_or_create_conversation
+from services.financial_data_service import list_accounts, list_transactions
 from services.financial_llm_client import FinancialLLMReply, FinancialLLMToolCall
+from services.financial_mock_payment_service import (
+    activate_variable_recurring_payment,
+    execute_immediate_payment,
+    schedule_domestic_payment,
+)
 from services.financial_payment_draft_service import (
     clear_payment_drafts,
     prepare_domestic_scheduled_payment_consents,
@@ -33,6 +38,7 @@ from services.financial_payment_draft_service import (
 from services.financial_pis_review_service import prepare_pis_payment_review
 from services.financial_policy_guard import FinancialPolicyError, assert_tool_allowed
 from services.financial_tools import ais_list_accounts, pis_prepare_domestic_payment_consent, pis_prepare_payment_review
+from services.financial_tool_executor import execute_financial_tool
 from psd2 import mock_bank
 from psd2.mock_bank import get_ob_accounts_response, get_ob_transactions_response
 from psd2.normalizers import normalize_ob_transaction
@@ -47,6 +53,22 @@ def disable_default_financial_llm(monkeypatch):
     mock_bank._load_json_from_source.cache_clear()
     yield
     mock_bank._load_json_from_source.cache_clear()
+
+
+@pytest.fixture
+def restore_mock_bank_json():
+    data_dir = Path(__file__).resolve().parents[1] / "data"
+    paths = [
+        data_dir / "mockAccounts.json",
+        data_dir / "mockTransactions.json",
+    ]
+    originals = {path: path.read_text(encoding="utf-8") for path in paths}
+    try:
+        yield
+    finally:
+        for path, content in originals.items():
+            path.write_text(content, encoding="utf-8")
+        mock_bank.clear_mock_data_cache()
 
 
 async def approve_and_resume(response, llm_client=None):
@@ -109,23 +131,88 @@ def test_pis_payment_review_leaves_unknown_fields_blank():
     assert review["status"] == "INPUT_REQUIRED"
     assert review["rows"][0]["payee"] == ""
     assert review["rows"][0]["amount"] is None
-    assert {"payee", "amount"} <= set(review["missingFields"])
+    assert {"debtorAccountId", "payee", "amount"} <= set(review["missingFields"])
+    assert review["payerAccounts"]
     assert review["safetyNotice"] == "No payment has been executed."
 
 
 def test_pis_payment_review_extracts_user_payee_and_amount():
     review = prepare_pis_payment_review(message="Please prepare a payment to SP Group Electricity for SGD 109.10")
-    assert review["status"] == "READY_FOR_CONFIRMATION"
+    assert review["status"] == "INPUT_REQUIRED"
     assert review["rows"][0]["payee"] == "SP Group Electricity"
     assert review["rows"][0]["amount"] == 109.10
-    assert review["canSubmit"] is True
+    assert review["rows"][0]["debtorAccountId"] == ""
+    assert review["canSubmit"] is False
+    assert "debtorAccountId" in review["missingFields"]
 
 
 def test_pis_payment_review_extracts_transfer_amount_before_payee():
     review = prepare_pis_payment_review(message="i want transfer 300SGD to my mom")
-    assert review["status"] == "READY_FOR_CONFIRMATION"
+    assert review["status"] == "INPUT_REQUIRED"
     assert review["rows"][0]["payee"] == "mom"
     assert review["rows"][0]["amount"] == 300
+    assert "debtorAccountId" in review["missingFields"]
+
+
+def test_immediate_mock_payment_mutates_account_and_transactions(restore_mock_bank_json):
+    before = next(account for account in list_accounts() if account["accountId"] == "acc-everyday-001")
+    transactions_before = list_transactions(from_date="2026-05-03", to_date="2026-05-03")
+
+    result = execute_immediate_payment(
+        debtor_account_id="acc-everyday-001",
+        payee="Amy",
+        amount=20,
+        currency="SGD",
+        remittance_information="Demo immediate transfer",
+    )
+
+    after = next(account for account in list_accounts() if account["accountId"] == "acc-everyday-001")
+    transactions_after = list_transactions(from_date="2026-05-03", to_date="2026-05-03")
+    assert result["status"] == "EXECUTED"
+    assert result["balanceBefore"] == before["balance"]
+    assert result["balanceAfter"] == round(before["balance"] - 20, 2)
+    assert after["balance"] == result["balanceAfter"]
+    assert after["availableBalance"] == result["availableBalanceAfter"]
+    assert len(transactions_after) == len(transactions_before) + 1
+    assert any(transaction["id"] == result["transactionId"] for transaction in transactions_after)
+
+
+def test_scheduled_and_vrp_mock_payments_do_not_mutate_json(restore_mock_bank_json):
+    before = next(account for account in list_accounts() if account["accountId"] == "acc-everyday-001")
+    transactions_before = list_transactions(from_date="2026-05-03", to_date="2026-05-03")
+
+    scheduled = schedule_domestic_payment(
+        debtor_account_id="acc-everyday-001",
+        payee="Amy",
+        amount=20,
+        scheduled_date="2026-05-10",
+    )
+    vrp = activate_variable_recurring_payment(
+        debtor_account_id="acc-everyday-001",
+        payee="Amy",
+        amount=20,
+        control_parameters={"maxIndividualAmount": 20, "maxCumulativeAmount": 60, "periodType": "month"},
+    )
+
+    after = next(account for account in list_accounts() if account["accountId"] == "acc-everyday-001")
+    transactions_after = list_transactions(from_date="2026-05-03", to_date="2026-05-03")
+    assert scheduled["status"] == "SCHEDULED"
+    assert vrp["status"] == "VRP_CONSENT_ACTIVE"
+    assert after["balance"] == before["balance"]
+    assert after["availableBalance"] == before["availableBalance"]
+    assert len(transactions_after) == len(transactions_before)
+
+
+def test_mock_payment_rejects_invalid_account_without_mutation(restore_mock_bank_json):
+    before = next(account for account in list_accounts() if account["accountId"] == "acc-everyday-001")
+    with pytest.raises(ValueError):
+        execute_immediate_payment(
+            debtor_account_id="acc-missing-001",
+            payee="Amy",
+            amount=20,
+        )
+    after = next(account for account in list_accounts() if account["accountId"] == "acc-everyday-001")
+    assert after["balance"] == before["balance"]
 
 
 def test_payment_execution_is_blocked():
@@ -181,7 +268,7 @@ def test_financial_mock_base_url_calls_external_open_banking_paths(monkeypatch):
                         }
                     ]
                 },
-                "Links": {"Self": "/open-banking/v4.0/aisp/accounts"},
+                "Links": {"Self": "/obie/open-banking/v4.0/aisp/accounts"},
                 "Meta": {"TotalPages": 1},
             }
 
@@ -197,12 +284,110 @@ def test_financial_mock_base_url_calls_external_open_banking_paths(monkeypatch):
 
     assert calls == [
         (
-            "https://mock.example.com/mock/open-banking/v4.0/aisp/accounts",
+            "https://mock.example.com/mock/obie/open-banking/v4.0/aisp/accounts",
             {"userId": "demo-user-001"},
             10,
         )
     ]
     assert accounts["Data"]["Account"][0]["AccountId"] == "external-acc-001"
+
+
+def test_financial_mock_base_url_calls_external_payment_paths(monkeypatch):
+    calls = []
+
+    class MockResponse:
+        def __init__(self, payload, status_code=200):
+            self._payload = payload
+            self.status_code = status_code
+            self.text = json.dumps(payload)
+            self.request = httpx.Request("POST", "https://mock.example.com")
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise httpx.HTTPStatusError(
+                    "error",
+                    request=self.request,
+                    response=httpx.Response(self.status_code, json=self._payload, request=self.request),
+                )
+
+        def json(self):
+            return self._payload
+
+    def fake_post(url, json, timeout):
+        calls.append((url, json, timeout))
+        return MockResponse(
+            {
+                "status": "EXECUTED",
+                "paymentType": "immediate_domestic",
+                "transactionId": "txn-external-001",
+                "debtorAccountId": json["debtorAccountId"],
+                "payee": json["payee"],
+                "amount": json["amount"],
+                "currency": json["currency"],
+                "balanceBefore": 100,
+                "availableBalanceBefore": 100,
+                "balanceAfter": 80,
+                "availableBalanceAfter": 80,
+            }
+        )
+
+    monkeypatch.setenv("FINANCIAL_MOCK_BASE_URL", "https://mock.example.com/mock")
+    monkeypatch.setattr(mock_bank.httpx, "post", fake_post)
+
+    result = execute_immediate_payment(
+        debtor_account_id="acc-everyday-001",
+        payee="Amy",
+        amount=20,
+        currency="SGD",
+    )
+
+    assert calls == [
+        (
+            "https://mock.example.com/mock/obie/open-banking/v4.0/pisp/domestic-payments",
+            {
+                "userId": "demo-user-001",
+                "debtorAccountId": "acc-everyday-001",
+                "payee": "Amy",
+                "amount": 20,
+                "currency": "SGD",
+                "remittanceInformation": None,
+            },
+            10,
+        )
+    ]
+    assert result["status"] == "EXECUTED"
+    assert result["balanceAfter"] == 80
+
+
+def test_financial_mock_base_url_surfaces_external_payment_error(monkeypatch):
+    class MockResponse:
+        status_code = 400
+        text = '{"detail": "Insufficient available balance for this mock payment."}'
+        request = httpx.Request("POST", "https://mock.example.com")
+
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "error",
+                request=self.request,
+                response=httpx.Response(400, json={"detail": "Insufficient available balance for this mock payment."}, request=self.request),
+            )
+
+        def json(self):
+            return {"detail": "Insufficient available balance for this mock payment."}
+
+    def fake_post(url, json, timeout):
+        return MockResponse()
+
+    monkeypatch.setenv("FINANCIAL_MOCK_BASE_URL", "https://mock.example.com/mock")
+    monkeypatch.setattr(mock_bank.httpx, "post", fake_post)
+
+    with pytest.raises(ValueError, match="Insufficient available balance"):
+        execute_immediate_payment(
+            debtor_account_id="acc-everyday-001",
+            payee="Amy",
+            amount=999999,
+            currency="SGD",
+        )
 
 
 def test_ais_pis_tools_return_capability_wrappers():
@@ -268,11 +453,67 @@ async def test_pis_journey_requires_type_then_prepares_review():
         "Immediate domestic payment",
         conversation_id=first["conversationId"],
     )
-    assert second["pis"]["paymentIntentState"]["status"] == "ready_for_consent_preparation"
+    assert second["pis"]["paymentIntentState"]["status"] == "details_required"
     assert second["pis"]["paymentIntentState"]["paymentType"] == "immediate_domestic"
-    assert second["pis"]["paymentReview"]["status"] == "READY_FOR_CONFIRMATION"
+    assert second["pis"]["paymentReview"]["status"] == "INPUT_REQUIRED"
     assert second["pis"]["paymentReview"]["rows"][0]["payee"] == "mom"
+    assert "debtorAccountId" in second["pis"]["paymentReview"]["missingFields"]
     assert second["agentWorkbench"]["paymentJourney"]["paymentType"] == "immediate_domestic"
+
+
+@pytest.mark.asyncio
+async def test_generic_payment_request_does_not_reuse_previous_payment_type():
+    clear_conversations()
+
+    class DisabledLLM:
+        is_configured = False
+
+    first = await handle_financial_agent_message("i want to make a payment", llm_client=DisabledLLM())
+    selected = await handle_financial_agent_message(
+        "Immediate domestic payment",
+        conversation_id=first["conversationId"],
+        llm_client=DisabledLLM(),
+    )
+    repeated = await handle_financial_agent_message(
+        "i want to make a payment",
+        conversation_id=first["conversationId"],
+        llm_client=DisabledLLM(),
+    )
+
+    assert selected["pis"]["paymentIntentState"]["paymentType"] == "immediate_domestic"
+    assert repeated["pis"]["paymentIntentState"]["status"] == "payment_type_required"
+    assert repeated["pis"]["paymentIntentState"]["paymentType"] is None
+    assert repeated["agentWorkbench"]["paymentJourney"]["missingFields"] == ["paymentType"]
+    assert "What kind of payment" in repeated["answer"]
+
+
+def test_llm_inferred_payment_type_is_ignored_for_generic_start_message():
+    clear_conversations()
+    state = get_or_create_conversation(None, "demo-user-001")
+    state.explicitPisRequest = True
+    state.paymentIntentState = {
+        "status": "details_required",
+        "capability": "PIS",
+        "paymentType": "immediate_domestic",
+        "paymentTypeLabel": "Immediate domestic payment",
+        "missingDetails": ["amount", "debtorAccountId", "payee"],
+    }
+    state.messages.append({"role": "user", "content": "i want to make a payment"})
+
+    result = execute_financial_tool(
+        "pis_start_payment_journey",
+        {
+            "user_id": "demo-user-001",
+            "message": "i want to make a payment",
+            "explicit_user_request": True,
+            "payment_type": "immediate_domestic",
+        },
+        state,
+    )
+
+    assert result["result"]["status"] == "payment_type_required"
+    assert result["result"]["selectedPaymentType"] is None
+    assert result["result"]["missingFields"] == ["paymentType"]
 
 
 def test_scheduled_and_vrp_consents_are_awau():
@@ -292,7 +533,7 @@ def test_scheduled_and_vrp_consents_are_awau():
 
 
 @pytest.mark.asyncio
-async def test_pis_consent_redirect_journey_authorises_without_execution():
+async def test_pis_consent_redirect_journey_authorises_then_executes_immediate(restore_mock_bank_json):
     clear_conversations()
     clear_consent_journeys()
     clear_payment_drafts()
@@ -305,6 +546,7 @@ async def test_pis_consent_redirect_journey_authorises_without_execution():
             "amount": "109.10",
             "currency": "SGD",
             "reference": "Electricity bill May 2026",
+            "debtorAccountId": "acc-everyday-001",
         },
     )
     assert journey["consentStatus"] == "AWAU"
@@ -319,11 +561,16 @@ async def test_pis_consent_redirect_journey_authorises_without_execution():
     params = parse_qs(urlparse(redirect["redirectUrl"]).query)
     callback = handle_open_banking_callback(code=params["code"][0], state_value=params["state"][0])
     resumed = await resume_after_consent(callback["conversationId"], callback["journeyId"])
+    resumed_again = await resume_after_consent(callback["conversationId"], callback["journeyId"])
 
     assert callback["consentStatus"] == "AUTH"
     assert resumed["consentJourney"]["consentStatus"] == "AUTH"
     assert resumed["agentWorkbench"]["consentJourney"]["status"] == "resumed"
-    assert "No payment has been executed." in resumed["answer"]
+    assert "executed 1 immediate mock payment" in resumed["answer"]
+    assert resumed["pis"]["mockPayments"][0]["status"] == "EXECUTED"
+    assert resumed_again["pis"]["mockPayments"][0]["transactionId"] == resumed["pis"]["mockPayments"][0]["transactionId"]
+    account = next(account for account in list_accounts() if account["accountId"] == "acc-everyday-001")
+    assert account["availableBalance"] == resumed["pis"]["mockPayments"][0]["availableBalanceAfter"]
 
 
 def test_consent_journey_reject_sets_rjct_and_blocks_resume():
@@ -401,6 +648,57 @@ async def test_financial_routes(monkeypatch):
     assert resumed.status_code == 200
     assert resumed.json()["agentWorkbench"]["consentJourney"]["status"] == "resumed"
     assert "subscriptions" in resumed.json()["ais"]
+
+
+@pytest.mark.asyncio
+async def test_mock_payment_routes(restore_mock_bank_json, monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "")
+    import main
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        immediate = await ac.post(
+            "/obie/open-banking/v4.0/pisp/domestic-payments",
+            json={
+                "userId": "demo-user-001",
+                "debtorAccountId": "acc-everyday-001",
+                "payee": "Amy",
+                "amount": 20,
+                "currency": "SGD",
+            },
+        )
+        accounts = await ac.get("/api/accounts")
+        scheduled = await ac.post(
+            "/obie/open-banking/v4.0/pisp/domestic-scheduled-payments",
+            json={
+                "userId": "demo-user-001",
+                "debtorAccountId": "acc-everyday-001",
+                "payee": "Amy",
+                "amount": 20,
+                "currency": "SGD",
+                "scheduledDate": "2026-05-10",
+            },
+        )
+        vrp = await ac.post(
+            "/obie/open-banking/v4.0/pisp/domestic-vrps",
+            json={
+                "userId": "demo-user-001",
+                "debtorAccountId": "acc-everyday-001",
+                "payee": "Amy",
+                "amount": 20,
+                "currency": "SGD",
+                "controlParameters": {"maxIndividualAmount": 20, "maxCumulativeAmount": 60},
+            },
+        )
+
+    assert immediate.status_code == 200
+    assert immediate.json()["status"] == "EXECUTED"
+    updated = next(account for account in accounts.json()["accounts"] if account["accountId"] == "acc-everyday-001")
+    assert updated["availableBalance"] == immediate.json()["availableBalanceAfter"]
+    assert scheduled.status_code == 200
+    assert scheduled.json()["status"] == "SCHEDULED"
+    assert vrp.status_code == 200
+    assert vrp.json()["status"] == "VRP_CONSENT_ACTIVE"
 
 
 @pytest.mark.asyncio
@@ -515,8 +813,9 @@ async def test_deterministic_fallback_preserves_ais_bill_context_for_pis():
     assert journey["pis"]["paymentIntentState"]["source"] == "ais_upcoming_bills"
     assert journey["pis"]["paymentIntentState"]["status"] == "payment_type_required"
     assert scheduled["pis"]["paymentIntentState"]["paymentType"] == "scheduled_domestic"
-    assert scheduled["pis"]["paymentReview"]["status"] == "READY_FOR_CONFIRMATION"
+    assert scheduled["pis"]["paymentReview"]["status"] == "INPUT_REQUIRED"
     assert scheduled["pis"]["paymentReview"]["rows"]
+    assert "debtorAccountId" in scheduled["pis"]["paymentReview"]["missingFields"]
 
 
 @pytest.mark.asyncio
@@ -711,11 +1010,12 @@ async def test_agent_runtime_accepts_llm_explicit_pis_request_for_typo_payment_t
     assert response["toolCalls"][0]["status"] == "success"
     assert response["capabilityUsed"] == ["PIS"]
     assert state["paymentType"] == "immediate_domestic"
-    assert state["status"] == "ready_for_consent_preparation"
+    assert state["status"] == "details_required"
     assert state["collectedDetails"]["creditorName"] == "Amy"
     assert state["collectedDetails"]["amount"] == 300
     assert review["rows"][0]["payee"] == "Amy"
     assert review["rows"][0]["amount"] == 300
+    assert "debtorAccountId" in review["missingFields"]
     assert response["agentWorkbench"]["capability"]["name"] == "PIS"
 
 

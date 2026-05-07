@@ -1,0 +1,56 @@
+[
+  {
+    "accountId": "acc-everyday-001",
+    "userId": "demo-user-001",
+    "name": "Everyday Global Account",
+    "type": "current",
+    "currency": "SGD",
+    "balance": 6120.45,
+    "availableBalance": 6120.45
+  },
+  {
+    "accountId": "acc-savings-001",
+    "userId": "demo-user-001",
+    "name": "Bonus Saver Account",
+    "type": "savings",
+    "currency": "SGD",
+    "balance": 24826.0,
+    "availableBalance": 24826.0
+  },
+  {
+    "accountId": "acc-travel-001",
+    "userId": "demo-user-001",
+    "name": "Travel Wallet",
+    "type": "wallet",
+    "currency": "SGD",
+    "balance": 1840.35,
+    "availableBalance": 1840.35
+  },
+  {
+    "accountId": "acc-bills-001",
+    "userId": "demo-user-001",
+    "name": "Bills Space",
+    "type": "savings",
+    "currency": "SGD",
+    "balance": 3250.0,
+    "availableBalance": 3250.0
+  },
+  {
+    "accountId": "acc-invest-001",
+    "userId": "demo-user-001",
+    "name": "Investment Cash Account",
+    "type": "investment_cash",
+    "currency": "SGD",
+    "balance": 9520.75,
+    "availableBalance": 9520.75
+  },
+  {
+    "accountId": "acc-joint-001",
+    "userId": "demo-user-001",
+    "name": "Joint Household Account",
+    "type": "current",
+    "currency": "SGD",
+    "balance": 4920.5,
+    "availableBalance": 4920.5
+  }
+]

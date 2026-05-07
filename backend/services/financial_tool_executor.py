@@ -4,6 +4,7 @@ from typing import Any
 
 from .financial_constants import DEMO_USER_ID
 from .financial_conversation_store import FinancialConversationState
+from .financial_payment_journey_service import detect_payment_type_from_message
 from .financial_policy_guard import validate_tool_call
 from .financial_tools import (
     ais_analyze_spending_change,
@@ -132,6 +133,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                     "payment_type": {
                         "type": "string",
                         "enum": ["immediate_domestic", "scheduled_domestic", "variable_recurring"],
+                        "description": "Only set when the current user message explicitly names or selects this payment journey type.",
                     },
                 },
             },
@@ -258,6 +260,11 @@ def execute_financial_tool(
             args["bills"] = state.lastAisResults["upcomingBills"].get("upcomingBills", [])
         if tool_name == "pis_start_payment_journey":
             args["message"] = args.get("message") or (state.messages[-1].get("content", "") if state.messages else "")
+            explicit_payment_type = detect_payment_type_from_message(args["message"])
+            if explicit_payment_type:
+                args["payment_type"] = explicit_payment_type
+            else:
+                args.pop("payment_type", None)
         if tool_name == "pis_prepare_payment_review":
             args["message"] = args.get("message") or (state.messages[-1].get("content", "") if state.messages else "")
             args.pop("payment_type", None)

@@ -176,10 +176,12 @@ def start_pis_consent_journey(
             {
                 "creditorName": row.get("payee"),
                 "amount": row.get("amount"),
-                "currency": row.get("currency", "SGD"),
-                "reference": row.get("remittanceInformation"),
-                "dueDate": row.get("dueDate"),
-            }
+            "currency": row.get("currency", "SGD"),
+            "debtorAccountId": row.get("debtorAccountId"),
+            "reference": row.get("remittanceInformation"),
+            "dueDate": row.get("dueDate"),
+            "controlParameters": row.get("controlParameters") or row.get("vrpControlParameters"),
+        }
             for row in review
         ]
     bills = [
@@ -187,10 +189,11 @@ def start_pis_consent_journey(
             "merchant": row.get("merchant") or row.get("creditorName") or row.get("payee") or "",
             "amount": row.get("amount"),
             "currency": row.get("currency", "SGD"),
+            "debtorAccountId": row.get("debtorAccountId"),
             "estimatedDueDate": row.get("estimatedDueDate") or row.get("dueDate") or "",
             "category": row.get("category", "Payment"),
             "remittanceInformation": row.get("reference") or row.get("remittanceInformation") or "",
-            "vrpControlParameters": row.get("vrpControlParameters"),
+            "vrpControlParameters": row.get("controlParameters") or row.get("vrpControlParameters"),
         }
         for row in payment_rows
     ]
@@ -255,6 +258,10 @@ def start_pis_consent_journey(
 def get_consent_journey(journey_id: str) -> dict[str, Any] | None:
     journey = _JOURNEYS.get(journey_id)
     return public_journey(journey) if journey else None
+
+
+def get_stored_consent_journey(journey_id: str) -> dict[str, Any] | None:
+    return _JOURNEYS.get(journey_id)
 
 
 def _set_journey_status(journey: dict[str, Any], consent_status: str, status: str) -> None:

@@ -22,7 +22,7 @@ async def log_http_requests(request: Request, call_next):
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
-    if request.url.path.startswith(("/api", "/chat", "/mcp")):
+    if request.url.path.startswith(("/api", "/obie", "/chat", "/mcp")):
         logger.info(
             "HTTP %s %s%s -> %s %.1fms client=%s",
             request.method,
@@ -46,6 +46,7 @@ app.add_middleware(
 app.include_router(api.router)
 app.include_router(chat.router)
 app.include_router(financial.router)
+app.include_router(financial.obie_router)
 
 # Mount the MCP SSE app
 app.mount("/mcp", mcp_server.http_app(transport="sse"))

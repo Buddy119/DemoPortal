@@ -15,6 +15,9 @@ import {
   resumeAfterConsent,
   sendAssistantMessage,
   startPisConsentJourney,
+  submitImmediateMockPayment,
+  submitScheduledMockPayment,
+  submitVariableRecurringMockPayment,
 } from '../utils/financialApi.js';
 
 export default function FinancialAssistantPage() {
@@ -107,6 +110,9 @@ export default function FinancialAssistantPage() {
                 sendMessage={sendAssistantMessage}
                 preparePaymentDrafts={preparePaymentDrafts}
                 startPISConsentJourney={startPisConsentJourney}
+                submitImmediateMockPayment={submitImmediateMockPayment}
+                submitScheduledMockPayment={submitScheduledMockPayment}
+                submitVariableRecurringMockPayment={submitVariableRecurringMockPayment}
                 resumeAfterConsent={resumeAfterConsent}
                 resumeRequest={resumeRequest}
                 onResumeHandled={() => navigate('/financial-assistant', { replace: true })}

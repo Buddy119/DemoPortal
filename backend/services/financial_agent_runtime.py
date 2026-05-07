@@ -10,12 +10,18 @@ from .financial_constants import DEMO_TODAY, DEMO_USER_ID, PAYMENT_SAFETY_NOTICE
 from .financial_consent_journey_service import (
     build_consent_workbench,
     get_consent_journey,
+    get_stored_consent_journey,
     has_valid_ais_consent,
     mark_journey_resumed,
     start_ais_consent_journey,
 )
 from .financial_conversation_store import FinancialConversationState, get_or_create_conversation
 from .financial_llm_client import FinancialLLMClient
+from .financial_mock_payment_service import (
+    activate_variable_recurring_payment,
+    execute_immediate_payment,
+    schedule_domestic_payment,
+)
 from .financial_payment_journey_service import (
     build_agent_workbench_from_response,
     handle_payment_journey_message,
@@ -320,6 +326,83 @@ def _structured_pis_answer(response: dict[str, Any]) -> str | None:
         f"I prepared {len(consents)} domestic payment consent records for review, totaling {_money(total, currency)}. "
         "Each consent is in AWAU status, meaning it is awaiting PSU authorisation. "
         f"{PAYMENT_SAFETY_NOTICE}"
+    )
+
+
+def _normalise_vrp_controls(control_parameters: dict[str, Any] | None, amount: Any) -> dict[str, Any]:
+    controls = control_parameters or {}
+    max_individual = controls.get("maxIndividualAmount")
+    max_cumulative = controls.get("maxCumulativeAmount")
+    if not max_individual:
+        max_individual = controls.get("MaximumIndividualAmount", {}).get("Amount")
+    if not max_cumulative:
+        max_cumulative = controls.get("MaximumCumulativeAmount", {}).get("Amount")
+    numeric_amount = float(amount or 0)
+    return {
+        "maxIndividualAmount": float(max_individual or numeric_amount),
+        "maxCumulativeAmount": float(max_cumulative or numeric_amount * 3),
+        "periodType": controls.get("periodType") or controls.get("PeriodType") or "month",
+        "validFrom": controls.get("validFrom") or controls.get("ValidFromDateTime"),
+        "validTo": controls.get("validTo") or controls.get("ValidToDateTime") or "2026-12-31",
+    }
+
+
+def _mock_payments_after_pis_authorisation(
+    journey: dict[str, Any],
+    state: FinancialConversationState,
+) -> list[dict[str, Any]]:
+    if journey.get("mockPaymentResults"):
+        return journey["mockPaymentResults"]
+
+    payment_type = journey.get("display", {}).get("paymentType") or state.paymentIntentState.get("paymentType") or "immediate_domestic"
+    payments = journey.get("display", {}).get("paymentSummary", {}).get("payments", [])
+    results: list[dict[str, Any]] = []
+    for payment in payments:
+        common = {
+            "user_id": state.userId,
+            "debtor_account_id": payment.get("debtorAccountId") or state.paymentIntentState.get("collectedDetails", {}).get("debtorAccountId") or "",
+            "payee": payment.get("payee") or payment.get("merchant") or payment.get("creditorName") or "",
+            "amount": payment.get("amount"),
+            "currency": payment.get("currency", "SGD"),
+            "remittance_information": payment.get("remittanceInformation") or payment.get("reference"),
+        }
+        if payment_type == "scheduled_domestic":
+            results.append(
+                schedule_domestic_payment(
+                    **common,
+                    scheduled_date=payment.get("dueDate") or payment.get("requestedExecutionDateTime", "")[:10],
+                )
+            )
+        elif payment_type == "variable_recurring":
+            results.append(
+                activate_variable_recurring_payment(
+                    **common,
+                    control_parameters=_normalise_vrp_controls(payment.get("controlParameters"), payment.get("amount")),
+                )
+            )
+        else:
+            results.append(execute_immediate_payment(**common))
+
+    journey["mockPaymentResults"] = results
+    return results
+
+
+def _pis_authorisation_answer(payment_type: str, mock_payments: list[dict[str, Any]]) -> str:
+    total = round(sum(float(payment.get("amount", 0)) for payment in mock_payments), 2)
+    currency = mock_payments[0].get("currency", "SGD") if mock_payments else "SGD"
+    if payment_type == "scheduled_domestic":
+        return (
+            f"Payment consent authorised. I scheduled {len(mock_payments)} mock payment(s) totaling {currency} {total:,.2f}. "
+            "No balance has changed yet because these are scheduled payments."
+        )
+    if payment_type == "variable_recurring":
+        return (
+            f"Payment consent authorised. I activated {len(mock_payments)} mock VRP arrangement(s). "
+            "No balance has changed by creating the VRP arrangement."
+        )
+    return (
+        f"Payment consent authorised. I executed {len(mock_payments)} immediate mock payment(s) totaling {currency} {total:,.2f}. "
+        "AIS balances and transactions now reflect the updated mock source data."
     )
 
 
@@ -690,15 +773,22 @@ async def resume_after_consent(
             state.lastAisResults.update({key: value for key, value in response["ais"].items() if value})
         return response
 
+    stored_journey = get_stored_consent_journey(journey_id) or resumed_journey
     payments = resumed_journey.get("display", {}).get("paymentSummary", {}).get("payments", [])
+    mock_payments = _mock_payments_after_pis_authorisation(stored_journey, state)
+    resumed_journey["mockPaymentResults"] = mock_payments
+    payment_type = resumed_journey.get("display", {}).get("paymentType") or state.paymentIntentState.get("paymentType") or "immediate_domestic"
     state.lastPisResults["domesticPaymentConsents"] = payments
+    state.lastPisResults["mockPayments"] = mock_payments
+    state.paymentIntentState = {
+        **state.paymentIntentState,
+        "status": "payment_executed" if payment_type == "immediate_domestic" else "payment_scheduled" if payment_type == "scheduled_domestic" else "vrp_active",
+        "paymentType": payment_type,
+        "paymentTypeLabel": resumed_journey.get("display", {}).get("paymentTypeLabel"),
+    }
     response = {
         "conversationId": state.conversationId,
-        "answer": (
-            "Payment consent authorised. Status: AUTH. "
-            "This MVP stops at consent authorisation and does not submit a payment order. "
-            f"{PAYMENT_SAFETY_NOTICE}"
-        ),
+        "answer": _pis_authorisation_answer(payment_type, mock_payments),
         "intent": "consent_result",
         "capabilityUsed": ["PIS"],
         "toolCalls": [
@@ -707,23 +797,35 @@ async def resume_after_consent(
                 "capability": "PIS",
                 "status": "success",
                 "summary": "PIS consent status returned from Demo Bank callback.",
+            },
+            {
+                "name": "mock_bank_execute_payment" if payment_type == "immediate_domestic" else "mock_bank_schedule_payment" if payment_type == "scheduled_domestic" else "mock_bank_activate_vrp",
+                "capability": "PIS",
+                "status": "success",
+                "summary": "Mock bank payment API called after PIS consent authorisation.",
             }
         ],
         "ais": {},
-        "pis": {"domesticPaymentConsents": payments},
+        "pis": {
+            "domesticPaymentConsents": payments,
+            "mockPayments": mock_payments,
+            "paymentIntentState": state.paymentIntentState,
+        },
+        "mockPayments": mock_payments,
         "consentJourney": resumed_journey,
         "agentWorkbench": build_consent_workbench(
             journey=resumed_journey,
             intent_label="PIS consent result",
             capability="PIS",
-            reason="PIS consent was authorised at Demo Bank. No payment order was submitted.",
+            reason="PIS consent was authorised at Demo Bank before the mock payment API was called.",
         ),
         "insights": [],
         "suggestedActions": [],
         "warnings": [],
-        "safetyNotice": PAYMENT_SAFETY_NOTICE,
+        "safetyNotice": "" if payment_type == "immediate_domestic" else "No balance was changed by this mock scheduled or VRP arrangement.",
     }
     response["agentWorkbench"]["preparedResources"] = resumed_journey.get("preparedResources", [])
+    response["agentWorkbench"]["toolTrace"] = response["toolCalls"]
     return response
 
 

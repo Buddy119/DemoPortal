@@ -289,6 +289,56 @@ describe('FinancialAssistantChat', () => {
     });
   });
 
+  test('does not duplicate domestic consent card after mock payment execution', async () => {
+    const sendMessage = jest.fn(() =>
+      Promise.resolve({
+        conversationId: 'conv-test-mock-executed',
+        answer: 'Demo Bank authorised the consent and the immediate mock payment was executed.',
+        toolCalls: [
+          { name: 'pis_get_payment_consent_status', capability: 'PIS', status: 'success' },
+          { name: 'mock_bank_execute_payment', capability: 'PIS', status: 'success' },
+        ],
+        pis: {
+          mockPayments: [
+            {
+              status: 'EXECUTED',
+              paymentType: 'immediate_domestic',
+              transactionId: 'txn-extpay-001',
+              payee: 'mom',
+              amount: 12,
+              currency: 'SGD',
+              balanceBefore: 24850,
+              balanceAfter: 24838,
+              payerAccount: { accountId: 'acc-savings-001', name: 'Bonus Saver Account' },
+            },
+          ],
+          domesticPaymentConsents: [
+            {
+              consentId: 'dpc-demo-user-001-mom-2026-05-03',
+              payee: 'mom',
+              amount: 12,
+              currency: 'SGD',
+              dueDate: '2026-05-03',
+              status: 'AUTH',
+              scaRequired: true,
+              executionStatus: 'Not Executed',
+            },
+          ],
+        },
+      })
+    );
+
+    render(React.createElement(FinancialAssistantChatComponent, { sendMessage }));
+
+    fireEvent.change(screen.getByPlaceholderText(/Ask about AIS insights/), { target: { value: 'show result' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send financial assistant message' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Mock payment executed')).toBeTruthy();
+      expect(screen.queryByText('Domestic payment consent prepared')).toBeNull();
+    });
+  });
+
   test('renders editable PIS payment review and submits completed rows', async () => {
     const sendMessage = jest.fn(() =>
       Promise.resolve({
@@ -301,43 +351,48 @@ describe('FinancialAssistantChat', () => {
             rows: [
               {
                 rowId: 'manual-payment-1',
+                debtorAccountId: '',
                 payee: '',
                 amount: '',
                 currency: 'SGD',
                 dueDate: '',
                 remittanceInformation: '',
-                editableFields: ['payee', 'amount', 'dueDate', 'remittanceInformation'],
-                missingFields: ['payee', 'amount'],
+                editableFields: ['debtorAccountId', 'payee', 'amount', 'dueDate', 'remittanceInformation'],
+                missingFields: ['debtorAccountId', 'payee', 'amount'],
               },
             ],
-            editableNotice: 'Payee, amount, due date, and remittance information are editable by the user before final confirmation.',
+            payerAccounts: [
+              {
+                accountId: 'acc-everyday-001',
+                name: 'Everyday Global Account',
+                currency: 'SGD',
+                availableBalance: 6120.45,
+              },
+            ],
+            editableNotice: 'From account, payee, amount, due date, and remittance information are editable by the user before final confirmation.',
             submitAction: { label: 'Submit final confirmation' },
             safetyNotice: 'No payment has been executed.',
           },
         },
       })
     );
-    const preparePaymentDrafts = jest.fn(() =>
+    const submitImmediateMockPayment = jest.fn(() =>
       Promise.resolve({
-        paymentDrafts: [],
-        domesticPaymentConsents: [
-          {
-            consentId: 'dpc-manual-001',
-            payee: 'SP Group Electricity',
-            amount: 109.1,
-            currency: 'SGD',
-            dueDate: '2026-05-08',
-            status: 'AWAU',
-            scaRequired: true,
-            executionStatus: 'Not Executed',
-          },
-        ],
-        safetyNotice: 'No payment has been executed.',
+        status: 'EXECUTED',
+        paymentType: 'immediate_domestic',
+        transactionId: 'txn-mockpay-001',
+        debtorAccountId: 'acc-everyday-001',
+        payerAccount: { accountId: 'acc-everyday-001', name: 'Everyday Global Account' },
+        payee: 'SP Group Electricity',
+        amount: 109.1,
+        currency: 'SGD',
+        balanceBefore: 6120.45,
+        balanceAfter: 6011.35,
       })
     );
     const onResult = jest.fn();
 
-    render(React.createElement(FinancialAssistantChatComponent, { sendMessage, preparePaymentDrafts, onResult }));
+    render(React.createElement(FinancialAssistantChatComponent, { sendMessage, submitImmediateMockPayment, onResult }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Prepare these payments for review.' }));
 
@@ -346,22 +401,26 @@ describe('FinancialAssistantChat', () => {
       expect(screen.getByRole('button', { name: /submit final confirmation/i }).disabled).toBe(true);
     });
 
+    fireEvent.change(screen.getByLabelText('From account for manual-payment-1'), { target: { value: 'acc-everyday-001' } });
     fireEvent.change(screen.getByLabelText('Payee for manual-payment-1'), { target: { value: 'SP Group Electricity' } });
     fireEvent.change(screen.getByLabelText('Amount for manual-payment-1'), { target: { value: '109.10' } });
     fireEvent.change(screen.getByLabelText('Due date for manual-payment-1'), { target: { value: '2026-05-08' } });
 
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /submit final confirmation/i }).disabled).toBe(false);
+    });
     fireEvent.click(screen.getByRole('button', { name: /submit final confirmation/i }));
 
     await waitFor(() => {
-      expect(preparePaymentDrafts).toHaveBeenCalledWith([
+      expect(submitImmediateMockPayment).toHaveBeenCalledWith(
         expect.objectContaining({
-          merchant: 'SP Group Electricity',
+          debtorAccountId: 'acc-everyday-001',
+          payee: 'SP Group Electricity',
           amount: 109.1,
-          estimatedDueDate: '2026-05-08',
-        }),
-      ], 'immediate_domestic');
-      expect(screen.getByText('Domestic payment consent prepared')).toBeTruthy();
-      expect(screen.getByText('dpc-manual-001')).toBeTruthy();
+        })
+      );
+      expect(screen.getByText('Mock payment executed')).toBeTruthy();
+      expect(screen.getByText('txn-mockpay-001')).toBeTruthy();
     });
   });
 
@@ -481,12 +540,21 @@ describe('FinancialAssistantChat', () => {
             rows: [
               {
                 rowId: 'payment-row-1',
+                debtorAccountId: 'acc-everyday-001',
                 payee: 'SP Group Electricity',
                 amount: 109.1,
                 currency: 'SGD',
                 dueDate: '2026-05-08',
                 remittanceInformation: 'Electricity bill May 2026',
                 missingFields: [],
+              },
+            ],
+            payerAccounts: [
+              {
+                accountId: 'acc-everyday-001',
+                name: 'Everyday Global Account',
+                currency: 'SGD',
+                availableBalance: 6120.45,
               },
             ],
             editableNotice: 'Payment details are editable.',
@@ -555,7 +623,30 @@ describe('FinancialAssistantChat', () => {
       'financialAssistant.chatState.v1',
       JSON.stringify({
         conversationId: 'conv-resume-001',
-        messages: [{ sender: 'assistant', text: 'Stored chat message', time: '10:00 AM' }],
+        messages: [
+          {
+            sender: 'assistant',
+            text: 'Stored chat message',
+            time: '10:00 AM',
+            result: {
+              answer: 'Stored chat message',
+              agentWorkbench: {
+                consentJourney: {
+                  journeyId: 'journey-ais-001',
+                  type: 'AIS_CONSENT',
+                  status: 'redirect_ready',
+                  consentId: 'aac-001',
+                  consentStatus: 'AWAU',
+                  redirectUrl: '/mock-aspsp/authorize?journeyId=journey-ais-001',
+                  display: {
+                    description: 'Continue to Demo Bank to authorise this consent.',
+                    requestedPermissions: ['ReadAccountsBasic'],
+                  },
+                },
+              },
+            },
+          },
+        ],
       })
     );
     const resumeAfterConsent = jest.fn(() =>
@@ -596,6 +687,8 @@ describe('FinancialAssistantChat', () => {
     await waitFor(() => {
       expect(resumeAfterConsent).toHaveBeenCalledWith({ conversationId: 'conv-resume-001', journeyId: 'journey-ais-001' });
       expect(screen.getByText('AIS consent authorised. I’ll continue with your request.')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /continue to demo bank/i })).toBeNull();
+      expect(screen.getAllByText('Authorised').length).toBeGreaterThan(0);
       expect(onResumeHandled).toHaveBeenCalled();
     });
   });

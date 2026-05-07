@@ -80,6 +80,7 @@ def normalize_ob_domestic_payment_consent(ob_consent: dict[str, Any]) -> dict[st
         "payee": creditor.get("Name"),
         "amount": float(amount.get("Amount", 0)),
         "currency": amount.get("Currency", "SGD"),
+        "debtorAccountId": enrichment.get("DebtorAccountId"),
         "dueDate": enrichment.get("DueDate"),
         "requestedExecutionDateTime": initiation.get("RequestedExecutionDateTime"),
         "controlParameters": data.get("ControlParameters"),

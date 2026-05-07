@@ -46,6 +46,14 @@ const RESOURCE_TYPE_LABELS = {
 const CHAT_STORAGE_KEY = 'financialAssistant.chatState.v1';
 const RESUME_MARKER_PREFIX = 'financialAssistant.resumeHandled.';
 const PROMPTS_VISIBILITY_KEY = 'financialAssistant.showSamplePrompts';
+const CONSENT_REDIRECT_DISABLED_STATUSES = new Set([
+  'redirected_to_aspsp',
+  'authorised',
+  'rejected',
+  'resumed',
+  'expired',
+  'cancelled',
+]);
 
 function loadStoredChatState() {
   if (typeof window === 'undefined') return null;
@@ -91,6 +99,34 @@ function clearResumeMarkers() {
   Object.keys(window.sessionStorage)
     .filter((key) => key.startsWith(RESUME_MARKER_PREFIX))
     .forEach((key) => window.sessionStorage.removeItem(key));
+}
+
+function patchConsentJourney(journey, journeyId, patch) {
+  if (!journey || (journeyId && journey.journeyId !== journeyId)) return journey;
+  return { ...journey, ...patch };
+}
+
+function patchConsentJourneyResult(result, journeyId, patch) {
+  if (!result) return result;
+  const next = { ...result };
+  if (next.consentJourney) {
+    next.consentJourney = patchConsentJourney(next.consentJourney, journeyId, patch);
+  }
+  if (next.agentWorkbench?.consentJourney) {
+    next.agentWorkbench = {
+      ...next.agentWorkbench,
+      consentJourney: patchConsentJourney(next.agentWorkbench.consentJourney, journeyId, patch),
+    };
+  }
+  return next;
+}
+
+function patchConsentJourneyMessages(messages, journeyId, patch) {
+  return messages.map((message) => (
+    message.result
+      ? { ...message, result: patchConsentJourneyResult(message.result, journeyId, patch) }
+      : message
+  ));
 }
 
 function loadPromptVisibility() {
@@ -418,7 +454,7 @@ function ConsentJourneyCard({ result, onRedirect }) {
   const paymentSummary = display.paymentSummary || {};
   const payments = paymentSummary.payments || [];
   const permissions = display.requestedPermissions || [];
-  const canRedirect = journey.redirectUrl && !['authorised', 'rejected', 'resumed'].includes(journey.status);
+  const canRedirect = journey.redirectUrl && !CONSENT_REDIRECT_DISABLED_STATUSES.has(journey.status);
 
   return (
     <div className="mt-5 max-w-3xl overflow-hidden rounded-lg border border-sky-400/30 bg-[#0c1a2e]/90 shadow-inner">
@@ -485,13 +521,30 @@ function ConsentJourneyCard({ result, onRedirect }) {
           >
             {isPis ? 'Authorise at Demo Bank' : 'Continue to Demo Bank'}
           </button>
-        ) : null}
+        ) : (
+          <span className="rounded border border-[#33445f] px-4 py-2 text-sm font-semibold text-slate-400">
+            {journey.status === 'redirected_to_aspsp'
+              ? 'Sent to Demo Bank'
+              : journey.consentStatus === 'AUTH'
+                ? 'Authorised'
+                : humanizeLabel(journey.status || 'completed')}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function PaymentReviewResultCard({ result, preparePaymentDrafts, startPISConsentJourney, onSubmitResult, onRedirect }) {
+function PaymentReviewResultCard({
+  result,
+  preparePaymentDrafts,
+  startPISConsentJourney,
+  submitImmediateMockPayment,
+  submitScheduledMockPayment,
+  submitVariableRecurringMockPayment,
+  onSubmitResult,
+  onRedirect,
+}) {
   const review = result?.pis?.paymentReview || result?.paymentReview;
   const [rows, setRows] = useState(review?.rows || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -513,33 +566,52 @@ function PaymentReviewResultCard({ result, preparePaymentDrafts, startPISConsent
     );
   };
 
-  const normalizedRows = rows.map((row) => ({
-    ...row,
-    amount: row.amount === '' || row.amount === null || row.amount === undefined ? '' : row.amount,
-    missingFields: [
-      !String(row.payee || '').trim() ? 'payee' : null,
-      row.amount === '' || row.amount === null || row.amount === undefined || Number.isNaN(Number(row.amount)) ? 'amount' : null,
-    ].filter(Boolean),
-  }));
+  const paymentType = review.paymentType || result?.pis?.paymentIntentState?.paymentType || 'immediate_domestic';
+  const payerAccounts = review.payerAccounts || result?.pis?.paymentReview?.payerAccounts || [];
+  const submittedMockPayments = submittedResult?.pis?.mockPayments || submittedResult?.mockPayments || [];
+  const submittedImmediate = submittedMockPayments.length > 0 && paymentType === 'immediate_domestic';
+  const normalizedRows = rows.map((row) => {
+    const vrpControls = row.vrpControlParameters || {};
+    return {
+      ...row,
+      amount: row.amount === '' || row.amount === null || row.amount === undefined ? '' : row.amount,
+      missingFields: [
+        !String(row.debtorAccountId || '').trim() ? 'debtorAccountId' : null,
+        !String(row.payee || '').trim() ? 'payee' : null,
+        row.amount === '' || row.amount === null || row.amount === undefined || Number.isNaN(Number(row.amount)) ? 'amount' : null,
+        paymentType === 'scheduled_domestic' && !String(row.dueDate || '').trim() ? 'scheduledDate' : null,
+        paymentType === 'variable_recurring' && !vrpControls.maxIndividualAmount && (row.amount === '' || row.amount === null || row.amount === undefined) ? 'maxIndividualAmount' : null,
+        paymentType === 'variable_recurring' && !vrpControls.maxCumulativeAmount && (row.amount === '' || row.amount === null || row.amount === undefined) ? 'maxCumulativeAmount' : null,
+      ].filter(Boolean),
+    };
+  });
   const canSubmit = normalizedRows.length > 0 && normalizedRows.every((row) => row.missingFields.length === 0);
 
   const submitReview = async () => {
-    if ((!preparePaymentDrafts && !startPISConsentJourney) || !canSubmit || isSubmitting) return;
+    const mockSubmitter = {
+      immediate_domestic: submitImmediateMockPayment,
+      scheduled_domestic: submitScheduledMockPayment,
+      variable_recurring: submitVariableRecurringMockPayment,
+    }[paymentType];
+    if ((!mockSubmitter && !preparePaymentDrafts && !startPISConsentJourney) || !canSubmit || isSubmitting) return;
     setError('');
     setIsSubmitting(true);
     try {
       const payments = normalizedRows.map((row) => ({
+        debtorAccountId: row.debtorAccountId,
         creditorName: row.payee,
+        payee: row.payee,
         merchant: row.payee,
         amount: Number(row.amount),
         currency: row.currency || 'SGD',
         dueDate: row.dueDate || undefined,
+        scheduledDate: row.dueDate || undefined,
         estimatedDueDate: row.dueDate || undefined,
         category: row.category || 'Payment',
         reference: row.remittanceInformation || undefined,
         remittanceInformation: row.remittanceInformation || undefined,
+        controlParameters: row.vrpControlParameters || undefined,
       }));
-      const paymentType = review.paymentType || result?.pis?.paymentIntentState?.paymentType || 'immediate_domestic';
       let mergedResult;
       if (startPISConsentJourney) {
         const journey = await startPISConsentJourney({
@@ -562,6 +634,34 @@ function PaymentReviewResultCard({ result, preparePaymentDrafts, startPISConsent
               status: 'consent_staged',
               paymentType,
               paymentTypeLabel: PAYMENT_TYPE_LABELS[paymentType] || review.paymentTypeLabel,
+            },
+          },
+        };
+      } else if (mockSubmitter) {
+        const mockPayments = await Promise.all(payments.map((payment) => mockSubmitter(payment)));
+        const total = mockPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const mockStatus = paymentType === 'immediate_domestic'
+          ? 'payment_executed'
+          : paymentType === 'scheduled_domestic'
+            ? 'payment_scheduled'
+            : 'vrp_active';
+        mergedResult = {
+          ...result,
+          mockPayments,
+          answer: paymentType === 'immediate_domestic'
+            ? `Mock immediate payment executed for ${formatMoney(total, mockPayments[0]?.currency || 'SGD')}. AIS balances and transactions now read the updated mock source data.`
+            : paymentType === 'scheduled_domestic'
+              ? `Mock scheduled payment accepted for ${formatMoney(total, mockPayments[0]?.currency || 'SGD')}. No balance was changed yet.`
+              : `Mock VRP arrangement is active for ${mockPayments.length} payee(s). No balance was changed by creating the arrangement.`,
+          pis: {
+            ...(result.pis || {}),
+            mockPayments,
+            paymentIntentState: {
+              ...(result.pis?.paymentIntentState || {}),
+              status: mockStatus,
+              paymentType,
+              paymentTypeLabel: PAYMENT_TYPE_LABELS[paymentType] || review.paymentTypeLabel,
+              reviewRows: normalizedRows,
             },
           },
         };
@@ -615,7 +715,11 @@ function PaymentReviewResultCard({ result, preparePaymentDrafts, startPISConsent
 
       <div className="px-5 py-4 text-sm text-slate-300">
         <p>{review.editableNotice || 'All payment details are editable by the user before final confirmation.'}</p>
-        <p className="mt-2 text-yellow-100">{review.safetyNotice || 'No payment has been executed.'}</p>
+        <p className="mt-2 text-yellow-100">
+          {submittedImmediate
+            ? 'This immediate mock payment has been executed against local demo data.'
+            : review.safetyNotice || 'No payment has been executed.'}
+        </p>
       </div>
 
       <div className="space-y-3 border-y border-red-500/20 px-5 py-4">
@@ -634,6 +738,23 @@ function PaymentReviewResultCard({ result, preparePaymentDrafts, startPISConsent
               )}
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="block text-xs font-medium text-slate-400">
+                From account
+                <select
+                  aria-label={`From account for ${row.rowId}`}
+                  value={row.debtorAccountId || ''}
+                  onChange={(event) => updateRow(row.rowId, 'debtorAccountId', event.target.value)}
+                  className="mt-1 w-full rounded border border-[#33445f] bg-[#0e1829] px-3 py-2 text-sm text-slate-100 focus:border-red-400 focus:outline-none"
+                >
+                  <option value="">Select payer account</option>
+                  {payerAccounts.map((account) => (
+                    <option key={account.accountId} value={account.accountId}>
+                      {account.name} · {formatMoney(account.availableBalance, account.currency || 'SGD')}
+                    </option>
+                  ))}
+                </select>
+                {row.missingFields.includes('debtorAccountId') ? <span className="mt-1 block text-xs text-yellow-200">Required</span> : null}
+              </label>
               <label className="block text-xs font-medium text-slate-400">
                 Payee
                 <input
@@ -666,9 +787,10 @@ function PaymentReviewResultCard({ result, preparePaymentDrafts, startPISConsent
                   aria-label={`Due date for ${row.rowId}`}
                   value={row.dueDate || ''}
                   onChange={(event) => updateRow(row.rowId, 'dueDate', event.target.value)}
-                  placeholder="Optional"
+                  placeholder={paymentType === 'scheduled_domestic' ? 'Required' : 'Optional'}
                   className="mt-1 w-full rounded border border-[#33445f] bg-[#0e1829] px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-red-400 focus:outline-none"
                 />
+                {row.missingFields.includes('scheduledDate') ? <span className="mt-1 block text-xs text-yellow-200">Required for scheduled payments</span> : null}
               </label>
               <label className="block text-xs font-medium text-slate-400">
                 Remittance
@@ -689,18 +811,33 @@ function PaymentReviewResultCard({ result, preparePaymentDrafts, startPISConsent
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
         <button
           type="button"
-          disabled={!canSubmit || isSubmitting || (!preparePaymentDrafts && !startPISConsentJourney)}
+          disabled={
+            !canSubmit ||
+            isSubmitting ||
+            Boolean(submittedResult) ||
+            (!preparePaymentDrafts &&
+              !startPISConsentJourney &&
+              !submitImmediateMockPayment &&
+              !submitScheduledMockPayment &&
+              !submitVariableRecurringMockPayment)
+          }
           onClick={submitReview}
           className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isSubmitting ? 'Submitting...' : review.submitAction?.label || 'Submit final confirmation'}
+          {isSubmitting ? 'Submitting...' : submittedResult ? 'Submitted' : review.submitAction?.label || 'Submit final confirmation'}
         </button>
         <p className="text-xs text-slate-500">
-          Submit stages an AWAU consent and redirects to Demo Bank for authorisation. No payment has been executed.
+          {startPISConsentJourney
+            ? 'Submit stages an AWAU consent and redirects to Demo Bank. The mock payment API is called only after Demo Bank authorisation.'
+            : submitImmediateMockPayment || submitScheduledMockPayment || submitVariableRecurringMockPayment
+            ? 'Immediate payments execute against mock source data; scheduled and VRP only create mock accepted states.'
+            : 'Submit stages an AWAU consent and redirects to Demo Bank for authorisation. No payment has been executed.'}
         </p>
       </div>
 
-      {submittedResult?.consentJourney ? (
+      {submittedResult?.pis?.mockPayments?.length || submittedResult?.mockPayments?.length ? (
+        <MockPaymentResultCard result={submittedResult} />
+      ) : submittedResult?.consentJourney ? (
         <ConsentJourneyCard result={submittedResult} onRedirect={onRedirect} />
       ) : submittedResult ? (
         <PaymentDraftResultCard result={submittedResult} />
@@ -773,6 +910,81 @@ function PaymentDraftResultCard({ result }) {
       <div className="px-5 py-4">
         <p className="rounded border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm font-medium text-yellow-100">
           {result.safetyNotice || 'No payment has been executed.'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function MockPaymentResultCard({ result }) {
+  const payments = result?.pis?.mockPayments?.length ? result.pis.mockPayments : result?.mockPayments || [];
+  if (!payments.length) return null;
+  const paymentType = payments[0]?.paymentType || result?.pis?.paymentIntentState?.paymentType || 'immediate_domestic';
+  const isImmediate = paymentType === 'immediate_domestic';
+  const isScheduled = paymentType === 'scheduled_domestic';
+  const currency = payments[0]?.currency || 'SGD';
+  const total = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const title = isImmediate
+    ? 'Mock payment executed'
+    : isScheduled
+      ? 'Mock payment scheduled'
+      : 'Mock VRP arrangement active';
+  const status = payments[0]?.status || (isImmediate ? 'EXECUTED' : isScheduled ? 'SCHEDULED' : 'VRP_CONSENT_ACTIVE');
+
+  return (
+    <div className="mt-5 w-full max-w-full overflow-hidden rounded-lg border border-emerald-500/30 bg-emerald-950/10 shadow-inner">
+      <div className="flex items-center justify-between gap-4 border-b border-emerald-500/20 px-5 py-4">
+        <div>
+          <p className="font-semibold text-slate-100">{title}</p>
+          <p className="mt-1 text-sm text-slate-400">
+            {payments.length} payment(s) · {formatMoney(total, currency)}
+          </p>
+        </div>
+        <span className="rounded bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
+          {status}
+        </span>
+      </div>
+      <div className="space-y-3 px-5 py-4">
+        {payments.map((payment) => (
+          <div key={payment.transactionId || payment.scheduleId || payment.arrangementId || `${payment.payee}-${payment.amount}`} className="rounded-lg border border-[#263752] bg-[#101b2d]/70 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-medium text-slate-100">{payment.payee}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  From {payment.payerAccount?.name || payment.debtorAccountId}
+                </p>
+              </div>
+              <p className="font-semibold text-slate-100">{formatMoney(payment.amount, payment.currency || currency)}</p>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+              {isImmediate ? (
+                <>
+                  <p className="text-slate-400">Balance before<br /><span className="font-medium text-slate-100">{formatMoney(payment.balanceBefore, payment.currency || currency)}</span></p>
+                  <p className="text-slate-400">Balance after<br /><span className="font-medium text-slate-100">{formatMoney(payment.balanceAfter, payment.currency || currency)}</span></p>
+                  <p className="text-slate-400">Transaction<br /><span className="break-all font-medium text-slate-100">{payment.transactionId}</span></p>
+                </>
+              ) : isScheduled ? (
+                <>
+                  <p className="text-slate-400">Scheduled date<br /><span className="font-medium text-slate-100">{payment.scheduledDate}</span></p>
+                  <p className="text-slate-400">Schedule<br /><span className="break-all font-medium text-slate-100">{payment.scheduleId}</span></p>
+                  <p className="text-slate-400">Balance impact<br /><span className="font-medium text-slate-100">Not changed yet</span></p>
+                </>
+              ) : (
+                <>
+                  <p className="text-slate-400">Max per payment<br /><span className="font-medium text-slate-100">{formatMoney(payment.controlParameters?.maxIndividualAmount, payment.currency || currency)}</span></p>
+                  <p className="text-slate-400">Max cumulative<br /><span className="font-medium text-slate-100">{formatMoney(payment.controlParameters?.maxCumulativeAmount, payment.currency || currency)}</span></p>
+                  <p className="text-slate-400">Valid until<br /><span className="font-medium text-slate-100">{payment.controlParameters?.validTo || 'Review'}</span></p>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="px-5 py-4">
+        <p className={`rounded border p-3 text-sm font-medium ${isImmediate ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100' : 'border-yellow-500/30 bg-yellow-500/10 text-yellow-100'}`}>
+          {isImmediate
+            ? 'Mock source data was updated. Future AIS account and transaction reads will reflect this payment.'
+            : 'This mock arrangement was accepted, but no balance was changed.'}
         </p>
       </div>
     </div>
@@ -1149,8 +1361,20 @@ function AgentWorkbench({ result, onPrompt }) {
   );
 }
 
-function StructuredResult({ result, preparePaymentDrafts, startPISConsentJourney, onSubmitResult, onPrompt, onRedirect }) {
+function StructuredResult({
+  result,
+  preparePaymentDrafts,
+  startPISConsentJourney,
+  submitImmediateMockPayment,
+  submitScheduledMockPayment,
+  submitVariableRecurringMockPayment,
+  onSubmitResult,
+  onPrompt,
+  onRedirect,
+}) {
   if (!result) return null;
+  const hasMockPayments = Boolean(result.pis?.mockPayments?.length || result.mockPayments?.length);
+  const hasConsentOnlyResults = !hasMockPayments && Boolean(result.pis?.domesticPaymentConsents?.length || result.paymentDrafts?.length);
   if (result.toolCalls?.length || result.agentWorkbench) {
     return (
       <>
@@ -1167,11 +1391,15 @@ function StructuredResult({ result, preparePaymentDrafts, startPISConsentJourney
             result={result}
             preparePaymentDrafts={preparePaymentDrafts}
             startPISConsentJourney={startPISConsentJourney}
+            submitImmediateMockPayment={submitImmediateMockPayment}
+            submitScheduledMockPayment={submitScheduledMockPayment}
+            submitVariableRecurringMockPayment={submitVariableRecurringMockPayment}
             onSubmitResult={onSubmitResult}
             onRedirect={onRedirect}
           />
         ) : null}
-        {result.pis?.domesticPaymentConsents?.length || result.paymentDrafts?.length ? <PaymentDraftResultCard result={result} /> : null}
+        {hasMockPayments ? <MockPaymentResultCard result={result} /> : null}
+        {hasConsentOnlyResults ? <PaymentDraftResultCard result={result} /> : null}
       </>
     );
   }
@@ -1185,12 +1413,16 @@ function StructuredResult({ result, preparePaymentDrafts, startPISConsentJourney
         result={result}
         preparePaymentDrafts={preparePaymentDrafts}
         startPISConsentJourney={startPISConsentJourney}
+        submitImmediateMockPayment={submitImmediateMockPayment}
+        submitScheduledMockPayment={submitScheduledMockPayment}
+        submitVariableRecurringMockPayment={submitVariableRecurringMockPayment}
         onSubmitResult={onSubmitResult}
         onRedirect={onRedirect}
       />
     );
   }
-  if (result.pis?.domesticPaymentConsents?.length || result.paymentDrafts?.length) return <PaymentDraftResultCard result={result} />;
+  if (hasMockPayments) return <MockPaymentResultCard result={result} />;
+  if (hasConsentOnlyResults) return <PaymentDraftResultCard result={result} />;
   return null;
 }
 
@@ -1199,6 +1431,9 @@ export default function FinancialAssistantChat({
   sendMessage,
   preparePaymentDrafts,
   startPISConsentJourney,
+  submitImmediateMockPayment,
+  submitScheduledMockPayment,
+  submitVariableRecurringMockPayment,
   resumeRequest,
   resumeAfterConsent,
   onResumeHandled,
@@ -1241,9 +1476,14 @@ export default function FinancialAssistantChat({
 
   const handleConsentRedirect = (journey) => {
     if (!journey?.redirectUrl) return;
-    saveStoredChatState({
-      conversationId: journey.conversationId || conversationId,
-      messages,
+    const nextStatus = 'redirected_to_aspsp';
+    setMessages((current) => {
+      const updatedMessages = patchConsentJourneyMessages(current, journey.journeyId, { status: nextStatus });
+      saveStoredChatState({
+        conversationId: journey.conversationId || conversationId,
+        messages: updatedMessages,
+      });
+      return updatedMessages;
     });
     window.location.assign(journey.redirectUrl);
   };
@@ -1274,7 +1514,10 @@ export default function FinancialAssistantChat({
           setConversationId(result.conversationId);
         }
         setMessages((current) => [
-          ...current,
+          ...patchConsentJourneyMessages(current, resumeJourneyId, {
+            status: result.agentWorkbench?.consentJourney?.status || result.consentJourney?.status || 'resumed',
+            consentStatus: result.agentWorkbench?.consentJourney?.consentStatus || result.consentJourney?.consentStatus,
+          }),
           { sender: 'assistant', text: result.answer, result, time: currentTime() },
         ]);
         onResult?.(result);
@@ -1406,6 +1649,9 @@ export default function FinancialAssistantChat({
                     result={message.result}
                     preparePaymentDrafts={preparePaymentDrafts}
                     startPISConsentJourney={startPISConsentJourney}
+                    submitImmediateMockPayment={submitImmediateMockPayment}
+                    submitScheduledMockPayment={submitScheduledMockPayment}
+                    submitVariableRecurringMockPayment={submitVariableRecurringMockPayment}
                     onSubmitResult={onResult}
                     onPrompt={submitMessage}
                     onRedirect={handleConsentRedirect}

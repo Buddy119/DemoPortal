@@ -17,12 +17,18 @@ from services.financial_consent_journey_service import (
 )
 from services.financial_constants import DEMO_USER_ID
 from services.financial_data_service import list_accounts, list_transactions
+from services.financial_mock_payment_service import (
+    activate_variable_recurring_payment,
+    execute_immediate_payment,
+    schedule_domestic_payment,
+)
 from services.financial_payment_draft_service import prepare_payment_drafts
 from services.financial_recurring_service import detect_subscriptions
 from services.financial_spending_service import get_spending_comparison
 
 
 router = APIRouter(prefix="/api")
+obie_router = APIRouter(prefix="/obie/open-banking/v4.0")
 logger = logging.getLogger(__name__)
 
 
@@ -74,6 +80,20 @@ class ResumeAfterConsentRequest(BaseModel):
     conversationId: str
     journeyId: str
     userId: str = DEMO_USER_ID
+
+
+class MockPaymentRequest(BaseModel):
+    userId: str = DEMO_USER_ID
+    debtorAccountId: str
+    payee: Optional[str] = None
+    creditorName: Optional[str] = None
+    amount: float
+    currency: str = "SGD"
+    dueDate: Optional[str] = None
+    scheduledDate: Optional[str] = None
+    remittanceInformation: Optional[str] = None
+    reference: Optional[str] = None
+    controlParameters: Optional[Dict[str, Any]] = None
 
 
 @router.post("/assistant/chat")
@@ -269,6 +289,84 @@ async def payment_drafts(req: PaymentDraftRequest) -> dict[str, Any]:
         "financial.payment_drafts userId=%s count=%s status=%s",
         req.userId,
         result.get("count"),
+        result.get("status"),
+    )
+    return result
+
+
+@obie_router.post("/pisp/domestic-payments")
+@router.post("/mock-bank/payments/immediate")
+async def mock_immediate_payment(req: MockPaymentRequest) -> dict[str, Any]:
+    try:
+        result = execute_immediate_payment(
+            user_id=req.userId,
+            debtor_account_id=req.debtorAccountId,
+            payee=req.payee or req.creditorName or "",
+            amount=req.amount,
+            currency=req.currency,
+            remittance_information=req.remittanceInformation or req.reference,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    logger.info(
+        "financial.mock_payment.immediate userId=%s debtorAccountId=%s payee=%s amount=%s status=%s",
+        req.userId,
+        req.debtorAccountId,
+        req.payee or req.creditorName,
+        req.amount,
+        result.get("status"),
+    )
+    return result
+
+
+@obie_router.post("/pisp/domestic-scheduled-payments")
+@router.post("/mock-bank/payments/scheduled")
+async def mock_scheduled_payment(req: MockPaymentRequest) -> dict[str, Any]:
+    try:
+        result = schedule_domestic_payment(
+            user_id=req.userId,
+            debtor_account_id=req.debtorAccountId,
+            payee=req.payee or req.creditorName or "",
+            amount=req.amount,
+            currency=req.currency,
+            scheduled_date=req.scheduledDate or req.dueDate,
+            remittance_information=req.remittanceInformation or req.reference,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    logger.info(
+        "financial.mock_payment.scheduled userId=%s debtorAccountId=%s payee=%s amount=%s scheduledDate=%s status=%s",
+        req.userId,
+        req.debtorAccountId,
+        req.payee or req.creditorName,
+        req.amount,
+        req.scheduledDate or req.dueDate,
+        result.get("status"),
+    )
+    return result
+
+
+@obie_router.post("/pisp/domestic-vrps")
+@router.post("/mock-bank/payments/variable-recurring")
+async def mock_variable_recurring_payment(req: MockPaymentRequest) -> dict[str, Any]:
+    try:
+        result = activate_variable_recurring_payment(
+            user_id=req.userId,
+            debtor_account_id=req.debtorAccountId,
+            payee=req.payee or req.creditorName or "",
+            amount=req.amount,
+            currency=req.currency,
+            control_parameters=req.controlParameters,
+            remittance_information=req.remittanceInformation or req.reference,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    logger.info(
+        "financial.mock_payment.vrp userId=%s debtorAccountId=%s payee=%s amount=%s status=%s",
+        req.userId,
+        req.debtorAccountId,
+        req.payee or req.creditorName,
+        req.amount,
         result.get("status"),
     )
     return result

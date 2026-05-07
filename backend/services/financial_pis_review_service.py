@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from .financial_bill_service import detect_upcoming_bills
 from .financial_constants import DEMO_CURRENCY, DEMO_USER_ID, PAYMENT_SAFETY_NOTICE
+from .financial_data_service import list_accounts
 
 
 def _extract_amount(message: str) -> float | None:
@@ -33,10 +34,27 @@ def _extract_payee(message: str) -> str | None:
     return None
 
 
+def _payer_accounts(user_id: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "accountId": account.get("accountId"),
+            "name": account.get("name"),
+            "type": account.get("type"),
+            "currency": account.get("currency", DEMO_CURRENCY),
+            "balance": account.get("balance"),
+            "availableBalance": account.get("availableBalance"),
+        }
+        for account in list_accounts(user_id)
+    ]
+
+
 def _review_row_from_bill(index: int, bill: dict[str, Any]) -> dict[str, Any]:
     payee = bill.get("merchant") or ""
     amount = bill.get("amount")
     missing_fields = []
+    debtor_account_id = bill.get("debtorAccountId") or ""
+    if not debtor_account_id:
+        missing_fields.append("debtorAccountId")
     if not payee:
         missing_fields.append("payee")
     if amount in (None, ""):
@@ -47,10 +65,11 @@ def _review_row_from_bill(index: int, bill: dict[str, Any]) -> dict[str, Any]:
         "payee": payee,
         "amount": amount,
         "currency": bill.get("currency", DEMO_CURRENCY),
+        "debtorAccountId": debtor_account_id,
         "dueDate": bill.get("estimatedDueDate") or bill.get("dueDate") or "",
         "category": bill.get("category") or "",
         "remittanceInformation": f"{payee} bill" if payee else "",
-        "editableFields": ["payee", "amount", "dueDate", "remittanceInformation"],
+        "editableFields": ["debtorAccountId", "payee", "amount", "dueDate", "remittanceInformation"],
         "missingFields": missing_fields,
         "canSubmit": not missing_fields,
     }
@@ -60,6 +79,7 @@ def _manual_row_from_message(message: str) -> dict[str, Any]:
     payee = _extract_payee(message) or ""
     amount = _extract_amount(message)
     missing_fields = []
+    missing_fields.append("debtorAccountId")
     if not payee:
         missing_fields.append("payee")
     if amount is None:
@@ -70,10 +90,11 @@ def _manual_row_from_message(message: str) -> dict[str, Any]:
         "payee": payee,
         "amount": amount,
         "currency": DEMO_CURRENCY,
+        "debtorAccountId": "",
         "dueDate": "",
         "category": "",
         "remittanceInformation": "",
-        "editableFields": ["payee", "amount", "dueDate", "remittanceInformation"],
+        "editableFields": ["debtorAccountId", "payee", "amount", "dueDate", "remittanceInformation"],
         "missingFields": missing_fields,
         "canSubmit": not missing_fields,
     }
@@ -93,6 +114,7 @@ def prepare_pis_payment_review(
         if known_bills
         else [_manual_row_from_message(message)]
     )
+    payer_accounts = _payer_accounts(user_id)
     missing_fields = sorted({field for row in rows for field in row["missingFields"]})
     can_submit = bool(rows) and not missing_fields
     status = "READY_FOR_CONFIRMATION" if can_submit else "INPUT_REQUIRED"
@@ -102,16 +124,17 @@ def prepare_pis_payment_review(
         "userId": user_id,
         "status": status,
         "rows": rows,
+        "payerAccounts": payer_accounts,
         "count": len(rows),
         "missingFields": missing_fields,
         "requiresManualInput": bool(missing_fields),
         "canSubmit": can_submit,
-        "editableNotice": "Payee, amount, due date, and remittance information are editable by the user before final confirmation.",
+        "editableNotice": "From account, payee, amount, due date, and remittance information are editable by the user before final confirmation.",
         "submitAction": {
             "label": "Submit final confirmation",
             "method": "POST",
-            "endpoint": "/api/payment-drafts",
-            "effect": "Creates AWAU domestic payment consent records for review only.",
+            "endpoint": "/obie/open-banking/v4.0/pisp",
+            "effect": "Calls the selected OBIE mock PISP API for this payment type.",
         },
         "safetyNotice": PAYMENT_SAFETY_NOTICE,
     }

@@ -139,6 +139,27 @@ export function preparePaymentDrafts(bills, paymentType = 'immediate_domestic', 
   });
 }
 
+export function submitImmediateMockPayment(payment, userId = 'demo-user-001') {
+  return request('/obie/open-banking/v4.0/pisp/domestic-payments', {
+    method: 'POST',
+    body: JSON.stringify({ userId, ...payment }),
+  });
+}
+
+export function submitScheduledMockPayment(payment, userId = 'demo-user-001') {
+  return request('/obie/open-banking/v4.0/pisp/domestic-scheduled-payments', {
+    method: 'POST',
+    body: JSON.stringify({ userId, ...payment }),
+  });
+}
+
+export function submitVariableRecurringMockPayment(payment, userId = 'demo-user-001') {
+  return request('/obie/open-banking/v4.0/pisp/domestic-vrps', {
+    method: 'POST',
+    body: JSON.stringify({ userId, ...payment }),
+  });
+}
+
 export function startAisConsentJourney({
   conversationId,
   originalMessage,

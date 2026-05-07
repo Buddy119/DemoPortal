@@ -51,6 +51,10 @@ def _detect_payment_type(message: str) -> str | None:
     return None
 
 
+def detect_payment_type_from_message(message: str) -> str | None:
+    return _detect_payment_type(message)
+
+
 def _looks_like_payment_message(message: str) -> bool:
     normalized = message.lower()
     patterns = [
@@ -70,6 +74,28 @@ def _looks_like_payment_message(message: str) -> bool:
         r"\bs\$\b",
     ]
     return any(re.search(pattern, normalized) for pattern in patterns)
+
+
+def _looks_like_fresh_payment_start(message: str) -> bool:
+    normalized = message.lower().strip()
+    if _detect_payment_type(normalized):
+        return False
+    if re.search(r"\b\d+(?:\.\d+)?\b", normalized):
+        return False
+    generic_phrases = [
+        "i want to make a payment",
+        "i want make a payment",
+        "make a payment",
+        "prepare a payment",
+        "start a payment",
+        "initialize a payment",
+        "initiate a payment",
+        "i want to pay",
+        "i need to pay",
+    ]
+    if not any(phrase in normalized for phrase in generic_phrases):
+        return False
+    return not re.search(r"\b(payment|transfer|send|pay)\s+to\s+\w+", normalized)
 
 
 def _looks_like_blocked_execution(message: str) -> bool:
@@ -129,7 +155,7 @@ def _review_rows_from_known_context(
         row = dict(current[0] if current else {})
         if previous:
             prior = previous[0]
-            for key in ["payee", "amount", "currency", "dueDate", "remittanceInformation", "category"]:
+            for key in ["debtorAccountId", "payee", "amount", "currency", "dueDate", "remittanceInformation", "category"]:
                 if row.get(key) in ("", None):
                     row[key] = prior.get(key)
         rows = [row]
@@ -142,6 +168,9 @@ def _review_rows_from_known_context(
         row["paymentType"] = payment_type
         row["paymentTypeLabel"] = PAYMENT_TYPE_LABELS[payment_type]
         row["currency"] = row.get("currency") or DEMO_CURRENCY
+        editable_fields = set(row.get("editableFields") or [])
+        editable_fields.add("debtorAccountId")
+        row["editableFields"] = sorted(editable_fields)
         if payment_type == "scheduled_domestic" and scheduled_date and not row.get("dueDate"):
             row["dueDate"] = scheduled_date
         if payment_type == "variable_recurring":
@@ -163,6 +192,8 @@ def _missing_fields(rows: list[dict[str, Any]], payment_type: str | None) -> lis
         missing.add("paymentType")
         return sorted(missing)
     for row in rows:
+        if not str(row.get("debtorAccountId") or "").strip():
+            missing.add("debtorAccountId")
         if not str(row.get("payee") or "").strip():
             missing.add("payee")
         if row.get("amount") in ("", None) or str(row.get("amount")).strip() == "":
@@ -186,8 +217,11 @@ def _collected_fields(state: FinancialConversationState, rows: list[dict[str, An
         bills = _known_bills(state)
         total = sum(float(bill.get("amount", 0)) for bill in bills)
         fields.append({"label": "Source", "value": f"AIS upcoming bills ({len(bills)} bills, {_money(total)})"})
-    debtor = _default_debtor_account(state.userId)
-    fields.append({"label": "Debtor account", "value": debtor["debtorAccountLabel"]})
+    accounts = {account.get("accountId"): account for account in list_accounts(state.userId)}
+    selected_debtor_id = rows[0].get("debtorAccountId") if rows else None
+    if selected_debtor_id:
+        account = accounts.get(selected_debtor_id, {})
+        fields.append({"label": "From account", "value": account.get("name") or selected_debtor_id})
     if len(rows) > 1:
         total = sum(float(row.get("amount") or 0) for row in rows)
         fields.append({"label": "Payment rows", "value": f"{len(rows)} rows, {_money(total)}"})
@@ -210,9 +244,18 @@ def _state_from_rows(
     status: str,
     missing_fields: list[str],
 ) -> dict[str, Any]:
-    details = _default_debtor_account(state.userId)
+    details: dict[str, Any] = {}
     if rows:
         row = rows[0]
+        if row.get("debtorAccountId"):
+            accounts = {account.get("accountId"): account for account in list_accounts(state.userId)}
+            account = accounts.get(row.get("debtorAccountId"), {})
+            details.update(
+                {
+                    "debtorAccountId": row.get("debtorAccountId"),
+                    "debtorAccountLabel": account.get("name") or row.get("debtorAccountId"),
+                }
+            )
         details.update(
             {
                 "creditorName": row.get("payee"),
@@ -400,7 +443,10 @@ def handle_payment_journey_message(message: str, state: FinancialConversationSta
         if _known_bills(state) and any(phrase in message.lower() for phrase in ["these", "bills", "this week", "detected"])
         else "direct_user_request"
     )
-    payment_type = _detect_payment_type(message) or existing.get("paymentType")
+    explicit_payment_type = _detect_payment_type(message)
+    payment_type = explicit_payment_type or (
+        None if _looks_like_fresh_payment_start(message) else existing.get("paymentType")
+    )
 
     if not payment_type:
         rows = _review_rows_from_known_context(state, message, "immediate_domestic", source)
@@ -437,6 +483,7 @@ def handle_payment_journey_message(message: str, state: FinancialConversationSta
 
     review = prepare_pis_payment_review(state.userId, message, _known_bills(state) if source == "ais_upcoming_bills" else None)
     review["rows"] = rows
+    review["payerAccounts"] = review.get("payerAccounts", [])
     review["count"] = len(rows)
     review["missingFields"] = missing
     review["requiresManualInput"] = bool(missing)

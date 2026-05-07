@@ -1208,7 +1208,7 @@ class MCPClient:
 mcp_client = MCPClient()
 
 # LangChain adapter for MCP tools --------------------------------------------
-from langchain.tools import StructuredTool
+from langchain_core.tools import StructuredTool
 
 
 async def _generate_structured_tools() -> list[StructuredTool]:

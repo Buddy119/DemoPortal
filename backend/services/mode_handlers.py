@@ -3,7 +3,7 @@
 import os
 
 import inspect
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.callbacks import BaseCallbackHandler
 
 from .mcp_client import mcp_client, Completion
 from .agent_factory import create_agent

@@ -16,15 +16,19 @@ from services.mcp_client import (
     get_api_usage_flow,
 )
 
-# Decorated tools return FunctionTool objects; underlying callables are in `.fn`.
-list_apis_fn = list_apis.fn
-get_api_details_fn = get_api_details.fn
-get_api_sample_fn = get_api_sample.fn
-search_apis_fn = search_apis.fn
-get_api_parameters_fn = get_api_parameters.fn
-get_api_response_example_fn = get_api_response_example.fn
-compare_api_specs_fn = compare_api_specs.fn
-get_api_usage_flow_fn = get_api_usage_flow.fn
+# FastMCP 2 returned FunctionTool objects; FastMCP 3 keeps decorated symbols as callables.
+def tool_fn(tool):
+    return getattr(tool, "fn", tool)
+
+
+list_apis_fn = tool_fn(list_apis)
+get_api_details_fn = tool_fn(get_api_details)
+get_api_sample_fn = tool_fn(get_api_sample)
+search_apis_fn = tool_fn(search_apis)
+get_api_parameters_fn = tool_fn(get_api_parameters)
+get_api_response_example_fn = tool_fn(get_api_response_example)
+compare_api_specs_fn = tool_fn(compare_api_specs)
+get_api_usage_flow_fn = tool_fn(get_api_usage_flow)
 
 
 def test_list_apis():

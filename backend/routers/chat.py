@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 import asyncio
 from pydantic import BaseModel, validator
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.callbacks import BaseCallbackHandler
 
 from services.mode_handlers import handle_agent_mode, handle_normal_mode
 

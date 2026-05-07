@@ -3,8 +3,8 @@ from typing import Optional, Sequence
 
 from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_openai_functions_agent, OpenAIFunctionsAgent
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain_classic.agents import AgentExecutor, create_openai_functions_agent, OpenAIFunctionsAgent
+from langchain_core.callbacks import BaseCallbackHandler
 
 from .mcp_client import _generate_structured_tools
 

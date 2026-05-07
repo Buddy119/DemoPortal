@@ -1,5 +1,5 @@
 import socketio
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.callbacks import BaseCallbackHandler
 
 from services.mcp_client import Completion
 from services.mode_handlers import (
@@ -60,4 +60,3 @@ async def user_message(sid, data):
         },
         room=sid,
     )
-

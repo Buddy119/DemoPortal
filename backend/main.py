@@ -47,8 +47,8 @@ app.include_router(api.router)
 app.include_router(chat.router)
 app.include_router(financial.router)
 
-# Mount the SSE app
-app.mount("/mcp", mcp_server.sse_app())
+# Mount the MCP SSE app
+app.mount("/mcp", mcp_server.http_app(transport="sse"))
 
 # Wrap the FastAPI app with Socket.IO ASGI app
 app = socketio.ASGIApp(sio, other_asgi_app=app)

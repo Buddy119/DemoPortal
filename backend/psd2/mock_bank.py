@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date, datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+import httpx
 
 from services.financial_constants import DEMO_TODAY, DEMO_USER_ID, PAYMENT_SAFETY_NOTICE
 
@@ -24,9 +27,37 @@ _ACCOUNT_ACCESS_CONSENTS: dict[str, dict[str, Any]] = {}
 
 
 @lru_cache(maxsize=None)
-def _load_json(filename: str) -> list[dict[str, Any]]:
+def _load_json_from_source(filename: str) -> list[dict[str, Any]]:
     with (DATA_DIR / filename).open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _load_json(filename: str) -> list[dict[str, Any]]:
+    return _load_json_from_source(filename)
+
+
+def _financial_mock_base_url() -> str:
+    return os.getenv("FINANCIAL_MOCK_BASE_URL", "").strip().rstrip("/")
+
+
+def _external_mock_enabled() -> bool:
+    return bool(_financial_mock_base_url())
+
+
+def _external_url(path: str) -> str:
+    return f"{_financial_mock_base_url()}/{path.lstrip('/')}"
+
+
+def _external_get(path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    response = httpx.get(_external_url(path), params=params, timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+
+def _date_param(value: str | date | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat() if isinstance(value, date) else value
 
 
 def _slug(value: str) -> str:
@@ -151,6 +182,12 @@ def _to_ob_transaction(transaction: dict[str, Any], running_balance: float | Non
 
 
 def get_ob_accounts_response(user_id: str = DEMO_USER_ID) -> dict[str, Any]:
+    if _external_mock_enabled():
+        return _external_get(
+            "/open-banking/v4.0/aisp/accounts",
+            params={"userId": user_id},
+        )
+
     accounts = [
         _to_ob_account(account)
         for account in _load_json("mockAccounts.json")
@@ -164,6 +201,14 @@ def get_ob_accounts_response(user_id: str = DEMO_USER_ID) -> dict[str, Any]:
 
 
 def get_ob_balances_response(user_id: str = DEMO_USER_ID, account_id: str | None = None) -> dict[str, Any]:
+    if _external_mock_enabled():
+        path = (
+            f"/open-banking/v4.0/aisp/accounts/{account_id}/balances"
+            if account_id
+            else "/open-banking/v4.0/aisp/balances"
+        )
+        return _external_get(path, params={"userId": user_id})
+
     balances = [
         _to_ob_balance(account)
         for account in _load_json("mockAccounts.json")
@@ -183,6 +228,19 @@ def get_ob_transactions_response(
     from_date: str | date | None = None,
     to_date: str | date | None = None,
 ) -> dict[str, Any]:
+    if _external_mock_enabled():
+        path = (
+            f"/open-banking/v4.0/aisp/accounts/{account_id}/transactions"
+            if account_id
+            else "/open-banking/v4.0/aisp/transactions"
+        )
+        params = {
+            "userId": user_id,
+            "fromBookingDateTime": _date_param(from_date),
+            "toBookingDateTime": _date_param(to_date),
+        }
+        return _external_get(path, params={key: value for key, value in params.items() if value is not None})
+
     start = date.fromisoformat(from_date) if isinstance(from_date, str) else from_date
     end = date.fromisoformat(to_date) if isinstance(to_date, str) else to_date
     transactions: list[dict[str, Any]] = []

@@ -33,6 +33,7 @@ from services.financial_payment_draft_service import (
 from services.financial_pis_review_service import prepare_pis_payment_review
 from services.financial_policy_guard import FinancialPolicyError, assert_tool_allowed
 from services.financial_tools import ais_list_accounts, pis_prepare_domestic_payment_consent, pis_prepare_payment_review
+from psd2 import mock_bank
 from psd2.mock_bank import get_ob_accounts_response, get_ob_transactions_response
 from psd2.normalizers import normalize_ob_transaction
 from services.financial_recurring_service import detect_subscriptions
@@ -42,6 +43,10 @@ from services.financial_spending_service import get_spending_comparison
 @pytest.fixture(autouse=True)
 def disable_default_financial_llm(monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "")
+    monkeypatch.setenv("FINANCIAL_MOCK_BASE_URL", "")
+    mock_bank._load_json_from_source.cache_clear()
+    yield
+    mock_bank._load_json_from_source.cache_clear()
 
 
 async def approve_and_resume(response, llm_client=None):
@@ -139,6 +144,65 @@ def test_ob_uk_v4_mock_shapes_and_normalizer():
     assert "Category" not in ob_transaction
     normalized = normalize_ob_transaction(ob_transaction, "demo-user-001")
     assert normalized["category"] == ob_transaction["DemoEnrichment"]["Category"]
+
+
+def test_financial_mock_base_url_blank_uses_local_data(monkeypatch):
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("External mock service should not be called")
+
+    monkeypatch.setenv("FINANCIAL_MOCK_BASE_URL", "")
+    monkeypatch.setattr(mock_bank.httpx, "get", fail_if_called)
+    mock_bank._load_json_from_source.cache_clear()
+
+    accounts = get_ob_accounts_response()
+
+    assert accounts["Data"]["Account"]
+    assert accounts["Data"]["Account"][0]["AccountId"].startswith("acc-")
+
+
+def test_financial_mock_base_url_calls_external_open_banking_paths(monkeypatch):
+    calls = []
+
+    class MockResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "Data": {
+                    "Account": [
+                        {
+                            "AccountId": "external-acc-001",
+                            "Status": "Enabled",
+                            "Currency": "SGD",
+                            "AccountCategory": "Personal",
+                            "AccountTypeCode": "CurrentAccount",
+                            "Nickname": "External Mock Account",
+                        }
+                    ]
+                },
+                "Links": {"Self": "/open-banking/v4.0/aisp/accounts"},
+                "Meta": {"TotalPages": 1},
+            }
+
+    def fake_get(url, params, timeout):
+        calls.append((url, params, timeout))
+        return MockResponse()
+
+    monkeypatch.setenv("FINANCIAL_MOCK_BASE_URL", "https://mock.example.com/mock")
+    monkeypatch.setattr(mock_bank.httpx, "get", fake_get)
+    mock_bank._load_json_from_source.cache_clear()
+
+    accounts = get_ob_accounts_response()
+
+    assert calls == [
+        (
+            "https://mock.example.com/mock/open-banking/v4.0/aisp/accounts",
+            {"userId": "demo-user-001"},
+            10,
+        )
+    ]
+    assert accounts["Data"]["Account"][0]["AccountId"] == "external-acc-001"
 
 
 def test_ais_pis_tools_return_capability_wrappers():
